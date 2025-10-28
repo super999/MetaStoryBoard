@@ -9,10 +9,10 @@
 import logging
 import sys
 from PySide6.QtWidgets import QApplication
+from qt_material import list_themes, apply_stylesheet
 
-from . import logging_utils
-from .main_window import ImageResizeMainWindow
-from qt_material import apply_stylesheet, list_themes
+from MuseLog import logging_utils
+from MuseLog.main_window import ImageResizeMainWindow
 
 
 def main():

@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QMainWindow, QWidget, QApplication
 
+from MuseLog.tab_batch_resize_widget import TabBatchResizeWidget
 from MuseLog.tab_home_widget import TabHomeWidget
 from MuseLog.tab_settings_widget import TabSettingsWidget
 from MuseLog.ui.ui_main_window import Ui_MainWindow
@@ -21,7 +22,6 @@ class ImageResizeMainWindow(QMainWindow, Ui_MainWindow):
         # 默认打开首页tab
         self.open_home_tab()
         self.open_batch_resize_tab()
-
 
         self.btnBatchResize = getattr(self, 'btnBatchResize', None)
         if self.btnBatchResize:
