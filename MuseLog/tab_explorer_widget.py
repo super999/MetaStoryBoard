@@ -12,6 +12,8 @@ from MuseLog.ui.ui_tab_explorer import Ui_TabExplorer
 from PySide6.QtWidgets import QHBoxLayout
 
 from MuseLog.explorer_custom_widgets import resolve_custom_widget_builder
+from MuseLog.explorer_signals import signal_manager
+
 
 class TabExplorerWidget(QWidget):
     """
@@ -47,7 +49,10 @@ class TabExplorerWidget(QWidget):
         self.ui.btnBack.clicked.connect(self.on_back_clicked)
         self.ui.btnGoUp.clicked.connect(self.on_go_up_clicked)
         self.ui.btnRefresh.clicked.connect(self.on_refresh_clicked)
-
+        
+        # 绑定信号
+        signal_manager.delete_selected_animation_sequence.connect(self.on_delete_selected_animation_sequence)
+                
         self._history: List[str] = []
         self._history_limit: int = 50
         self._current_path: Optional[str] = None
@@ -445,3 +450,18 @@ class TabExplorerWidget(QWidget):
             except Exception as e:
                 QMessageBox.warning(self, "错误", f"无法创建视频目录：\n{str(e)}", QMessageBox.Ok)
                 
+    def on_delete_selected_animation_sequence(self):
+        logging.info(f"删除选中的动画序列, 当前选中路径: {self._current_path}")
+        # 删除指定的文件夹，并刷新目录
+        if not self._current_path:
+            return
+        try:
+            if os.path.isdir(self._current_path):
+                import shutil
+                shutil.rmtree(self._current_path)
+                logging.info(f"已删除目录: {self._current_path}")
+                # 刷新当前目录的上级目录
+                parent_dir = os.path.dirname(self._current_path)
+                self.navigate_to_path(parent_dir, add_history=False)
+        except Exception as e:
+            logging.error(f"删除目录失败: {self._current_path}, 错误: {str(e)}")
