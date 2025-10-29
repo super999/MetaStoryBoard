@@ -48,6 +48,45 @@
        <number>0</number>
       </property>
       <item>
+       <widget class="QPushButton" name="btnBack">
+        <property name="maximumSize">
+         <size>
+          <width>100</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>返回</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnGoUp">
+        <property name="maximumSize">
+         <size>
+          <width>100</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>上一层</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnRefresh">
+        <property name="maximumSize">
+         <size>
+          <width>100</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>刷新</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QLineEdit" name="lineAddress">
         <property name="placeholderText">
          <string>请输入目录路径，例如：D:/data/ai_assets</string>
@@ -159,7 +198,7 @@
            </widget>
           </item>
           <item>
-           <widget class="QWidget" name="widget_2" native="true"/>
+           <widget class="QWidget" name="widget_custom_show" native="true"/>
           </item>
          </layout>
         </widget>

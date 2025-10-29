@@ -35,6 +35,24 @@ class Ui_TabExplorer(object):
         self.horizontalLayout2.setSpacing(0)
         self.horizontalLayout2.setObjectName(u"horizontalLayout2")
         self.horizontalLayout2.setContentsMargins(0, 0, 0, 0)
+        self.btnBack = QPushButton(self.topControlWidget)
+        self.btnBack.setObjectName(u"btnBack")
+        self.btnBack.setMaximumSize(QSize(100, 16777215))
+
+        self.horizontalLayout2.addWidget(self.btnBack)
+
+        self.btnGoUp = QPushButton(self.topControlWidget)
+        self.btnGoUp.setObjectName(u"btnGoUp")
+        self.btnGoUp.setMaximumSize(QSize(100, 16777215))
+
+        self.horizontalLayout2.addWidget(self.btnGoUp)
+
+        self.btnRefresh = QPushButton(self.topControlWidget)
+        self.btnRefresh.setObjectName(u"btnRefresh")
+        self.btnRefresh.setMaximumSize(QSize(100, 16777215))
+
+        self.horizontalLayout2.addWidget(self.btnRefresh)
+
         self.lineAddress = QLineEdit(self.topControlWidget)
         self.lineAddress.setObjectName(u"lineAddress")
 
@@ -99,10 +117,10 @@ class Ui_TabExplorer(object):
 
         self.verticalLayout_2.addWidget(self.widget)
 
-        self.widget_2 = QWidget(self.rightTopPanel)
-        self.widget_2.setObjectName(u"widget_2")
+        self.widget_custom_show = QWidget(self.rightTopPanel)
+        self.widget_custom_show.setObjectName(u"widget_custom_show")
 
-        self.verticalLayout_2.addWidget(self.widget_2)
+        self.verticalLayout_2.addWidget(self.widget_custom_show)
 
 
         self.rightPanelLayout.addWidget(self.rightTopPanel)
@@ -131,6 +149,9 @@ class Ui_TabExplorer(object):
     def retranslateUi(self, TabExplorer):
         TabExplorer.setWindowTitle(QCoreApplication.translate("TabExplorer", u"\u8d44\u6e90\u6d4f\u89c8", None))
         self.topControlWidget.setWindowTitle(QCoreApplication.translate("TabExplorer", u"\u8d44\u6e90\u6d4f\u89c8", None))
+        self.btnBack.setText(QCoreApplication.translate("TabExplorer", u"\u8fd4\u56de", None))
+        self.btnGoUp.setText(QCoreApplication.translate("TabExplorer", u"\u4e0a\u4e00\u5c42", None))
+        self.btnRefresh.setText(QCoreApplication.translate("TabExplorer", u"\u5237\u65b0", None))
         self.lineAddress.setPlaceholderText(QCoreApplication.translate("TabExplorer", u"\u8bf7\u8f93\u5165\u76ee\u5f55\u8def\u5f84\uff0c\u4f8b\u5982\uff1aD:/data/ai_assets", None))
         self.btnEnter.setText(QCoreApplication.translate("TabExplorer", u"\u8fdb\u5165", None))
         self.btnReference.setText(QCoreApplication.translate("TabExplorer", u"\u53c2\u8003\u56fe", None))

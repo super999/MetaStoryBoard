@@ -41,6 +41,17 @@ class TabExplorerWidget(QWidget):
         self.ui.btnSequenceFrames.clicked.connect(self.on_sequence_frames_clicked)
         self.ui.btnSpine.clicked.connect(self.on_spine_clicked)
         self.ui.btnVideo.clicked.connect(self.on_video_clicked)
+        self.ui.btnBack.clicked.connect(self.on_back_clicked)
+        self.ui.btnGoUp.clicked.connect(self.on_go_up_clicked)
+        self.ui.btnRefresh.clicked.connect(self.on_refresh_clicked)
+
+        self._history: List[str] = []
+        self._history_limit: int = 50
+        self._current_path: Optional[str] = None
+        self._suppress_tree_selection: bool = False
+        self._suppress_history: bool = False
+
+        self._update_nav_buttons()
 
         self._config_file = self._init_config_path()
         last_path = self._load_last_path()
@@ -61,7 +72,7 @@ class TabExplorerWidget(QWidget):
         path = self.ui.lineAddress.text().strip()
         self.navigate_to_path(path)
 
-    def navigate_to_path(self, path: str):
+    def navigate_to_path(self, path: str, *, add_history: bool = True, update_tree: bool = True):
         if not path:
             return
         path = os.path.normpath(path)
@@ -73,13 +84,23 @@ class TabExplorerWidget(QWidget):
             return
         self.ui.lineAddress.setText(path)
         idx = self.model.index(path)
-        self.ui.treeView.setRootIndex(idx)
-        # 自动选中根目录，刷新右侧信息
-        self.ui.treeView.setCurrentIndex(idx)
+        if not idx.isValid():
+            idx = self.model.setRootPath(path)
+        if update_tree:
+            self._suppress_tree_selection = True
+            try:
+                self.ui.treeView.setRootIndex(idx)
+                # 自动选中根目录，刷新右侧信息
+                self.ui.treeView.setCurrentIndex(idx)
+            finally:
+                self._suppress_tree_selection = False
         self.show_directory_metadata(path)
         self._save_last_path(path)
+        self._set_current_path(path, add_history=add_history)
 
     def on_tree_selection_changed(self, selected, _deselected):
+        if self._suppress_tree_selection:
+            return
         indexes: List[QModelIndex] = selected.indexes()
         if not indexes:
             return
@@ -90,11 +111,60 @@ class TabExplorerWidget(QWidget):
         if os.path.isdir(path):
             self.ui.lineAddress.setText(path)
             self.show_directory_metadata(path)
+            self._set_current_path(path, add_history=True)
             self._save_last_path(path)
+
+    def on_back_clicked(self):
+        if not self._history:
+            return
+        target_path: Optional[str] = None
+        while self._history and not target_path:
+            candidate = self._history.pop()
+            if candidate and os.path.isdir(candidate):
+                target_path = candidate
+        if target_path:
+            self.navigate_to_path(target_path, add_history=False)
+        else:
+            QMessageBox.information(self, "历史为空", "没有可返回的目录。", QMessageBox.Ok)
+        self._update_nav_buttons()
+
+    def on_go_up_clicked(self):
+        current_path = self._current_path or self.ui.lineAddress.text().strip()
+        if not current_path:
+            return
+        if not os.path.isdir(current_path):
+            current_path = os.path.dirname(current_path)
+        dir_obj = QDir(current_path)
+        if not dir_obj.exists():
+            # 若当前目录不存在，则寻找最近的有效父目录
+            parent_path = self._find_existing_parent(current_path)
+            if not parent_path:
+                return
+            dir_obj = QDir(parent_path)
+        if not dir_obj.cdUp():
+            return
+        parent = os.path.normpath(dir_obj.absolutePath())
+        self.navigate_to_path(parent)
+
+    def on_refresh_clicked(self):
+        current_path = self._current_path or self.ui.lineAddress.text().strip()
+        if not current_path or not os.path.isdir(current_path):
+            return
+        try:
+            idx = self.model.index(current_path)
+            if hasattr(self.model, "refresh"):
+                if idx.isValid():
+                    self.model.refresh(idx)
+                else:
+                    self.model.refresh()
+        except Exception:
+            pass
+        self.navigate_to_path(current_path, add_history=False, update_tree=True)
 
     # ---------------------- 元数据收集与显示 ----------------------
     def show_directory_metadata(self, folder: str):
         meta = self.collect_metadata(folder)
+        self._update_custom_widget(folder, meta)
         self.populate_table(meta)
 
     def populate_table(self, meta: Dict[str, Any]):
@@ -166,6 +236,60 @@ class TabExplorerWidget(QWidget):
             meta["参考图"] = ", ".join(os.path.basename(r) for r in refs[:20]) + (" ..." if len(refs) > 20 else "")
 
         return meta
+
+    # ---------------------- 导航辅助 ----------------------
+    def _set_current_path(self, path: str, add_history: bool = True) -> None:
+        if not path:
+            return
+        normalized_new = self._normalize_path(path)
+        normalized_current = self._normalize_path(self._current_path)
+        if add_history and self._current_path and normalized_new != normalized_current:
+            if not self._history or self._normalize_path(self._history[-1]) != normalized_current:
+                self._history.append(self._current_path)
+                self._trim_history()
+        self._current_path = path
+        self._update_nav_buttons()
+
+    def _normalize_path(self, path: Optional[str]) -> Optional[str]:
+        if not path:
+            return None
+        return os.path.normcase(os.path.normpath(path))
+
+    def _trim_history(self) -> None:
+        if len(self._history) > self._history_limit:
+            overflow = len(self._history) - self._history_limit
+            if overflow > 0:
+                del self._history[0:overflow]
+
+    def _update_custom_widget(self, folder: str, meta: Dict[str, Any]) -> None:
+        """临时占位：后续将 folder/meta 渲染到 widget_custom_show."""
+        print(f"[TabExplorer] 选中目录: {folder}")
+
+    def _find_existing_parent(self, path: str) -> Optional[str]:
+        candidate = os.path.normpath(path)
+        visited = set()
+        while True:
+            normalized_candidate = self._normalize_path(candidate)
+            if normalized_candidate in visited:
+                return None
+            visited.add(normalized_candidate)
+            if os.path.isdir(candidate):
+                return candidate
+            parent = os.path.dirname(candidate)
+            if not parent or self._normalize_path(parent) == normalized_candidate:
+                return None
+            candidate = parent
+
+    def _update_nav_buttons(self) -> None:
+        self.ui.btnBack.setEnabled(bool(self._history))
+        current = self._current_path
+        current_exists = bool(current and os.path.isdir(current))
+        can_go_up = False
+        if current_exists:
+            dir_obj = QDir(current)
+            can_go_up = dir_obj.cdUp()
+        self.ui.btnGoUp.setEnabled(can_go_up)
+        self.ui.btnRefresh.setEnabled(current_exists)
 
     # ---------------------- 工具函数 ----------------------
     def _read_first_text(self, paths: List[str]) -> Optional[str]:
