@@ -42,9 +42,19 @@ class TabExplorerWidget(QWidget):
         self.ui.btnSpine.clicked.connect(self.on_spine_clicked)
         self.ui.btnVideo.clicked.connect(self.on_video_clicked)
 
-        # 初始化地址
-        start_path = default_path or QDir.homePath()
-        self.navigate_to_path(start_path)
+        self._config_file = self._init_config_path()
+        last_path = self._load_last_path()
+
+        # 初始化地址，优先使用记录的历史路径
+        start_candidates = [last_path, default_path, QDir.homePath()]
+        chosen_path: Optional[str] = None
+        for candidate in start_candidates:
+            if candidate and os.path.isdir(candidate):
+                chosen_path = candidate
+                break
+        if not chosen_path:
+            chosen_path = QDir.homePath()
+        self.navigate_to_path(chosen_path)
 
     # ---------------------- 导航与选择 ----------------------
     def on_enter_clicked(self):
@@ -67,6 +77,7 @@ class TabExplorerWidget(QWidget):
         # 自动选中根目录，刷新右侧信息
         self.ui.treeView.setCurrentIndex(idx)
         self.show_directory_metadata(path)
+        self._save_last_path(path)
 
     def on_tree_selection_changed(self, selected, _deselected):
         indexes: List[QModelIndex] = selected.indexes()
@@ -79,6 +90,7 @@ class TabExplorerWidget(QWidget):
         if os.path.isdir(path):
             self.ui.lineAddress.setText(path)
             self.show_directory_metadata(path)
+            self._save_last_path(path)
 
     # ---------------------- 元数据收集与显示 ----------------------
     def show_directory_metadata(self, folder: str):
@@ -193,6 +205,36 @@ class TabExplorerWidget(QWidget):
         except Exception:
             pass
         return out
+
+    # ---------------------- 状态持久化 ----------------------
+    def _init_config_path(self) -> str:
+        config_dir = os.path.join(os.path.expanduser("~"), ".muselog")
+        try:
+            os.makedirs(config_dir, exist_ok=True)
+        except Exception:
+            pass
+        return os.path.join(config_dir, "tab_explorer.json")
+
+    def _load_last_path(self) -> Optional[str]:
+        try:
+            with open(self._config_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            path = data.get("last_path")
+            if path and os.path.isdir(path):
+                return path
+        except Exception:
+            pass
+        return None
+
+    def _save_last_path(self, path: str) -> None:
+        if not path:
+            return
+        try:
+            os.makedirs(os.path.dirname(self._config_file), exist_ok=True)
+            with open(self._config_file, "w", encoding="utf-8") as f:
+                json.dump({"last_path": path}, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
 
     def on_reference_clicked(self):
         # 检查当前目录下是否有 “参考图” 的子目录

@@ -18,7 +18,7 @@ from MuseLog.main_window import MuseLogMainWindow
 def main():
     # 初始化日志
     logging_utils.init_logging()
-    logging.info("Image Resize Tool started")
+    logging.info("Meta Story Board started")
     app = QApplication(sys.argv)
     print(list_themes())
     # 套用“dark_teal.xml”深色主题
