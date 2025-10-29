@@ -16,30 +16,37 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QHeaderView, QLineEdit,
-    QPushButton, QSizePolicy, QSplitter, QTableWidget,
-    QTableWidgetItem, QTreeView, QVBoxLayout, QWidget)
+    QPushButton, QSizePolicy, QSpacerItem, QSplitter,
+    QTableWidget, QTableWidgetItem, QTreeView, QVBoxLayout,
+    QWidget)
 
 class Ui_TabExplorer(object):
     def setupUi(self, TabExplorer):
         if not TabExplorer.objectName():
             TabExplorer.setObjectName(u"TabExplorer")
-        TabExplorer.resize(758, 555)
+        TabExplorer.resize(891, 549)
         self.verticalLayout = QVBoxLayout(TabExplorer)
         self.verticalLayout.setObjectName(u"verticalLayout")
-        self.horizontalLayout = QHBoxLayout()
-        self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.lineAddress = QLineEdit(TabExplorer)
+        self.topControlWidget = QWidget(TabExplorer)
+        self.topControlWidget.setObjectName(u"topControlWidget")
+        self.topControlWidget.setMinimumSize(QSize(0, 30))
+        self.topControlWidget.setMaximumSize(QSize(16777215, 50))
+        self.horizontalLayout2 = QHBoxLayout(self.topControlWidget)
+        self.horizontalLayout2.setSpacing(0)
+        self.horizontalLayout2.setObjectName(u"horizontalLayout2")
+        self.horizontalLayout2.setContentsMargins(0, 0, 0, 0)
+        self.lineAddress = QLineEdit(self.topControlWidget)
         self.lineAddress.setObjectName(u"lineAddress")
 
-        self.horizontalLayout.addWidget(self.lineAddress)
+        self.horizontalLayout2.addWidget(self.lineAddress)
 
-        self.btnEnter = QPushButton(TabExplorer)
+        self.btnEnter = QPushButton(self.topControlWidget)
         self.btnEnter.setObjectName(u"btnEnter")
 
-        self.horizontalLayout.addWidget(self.btnEnter)
+        self.horizontalLayout2.addWidget(self.btnEnter)
 
 
-        self.verticalLayout.addLayout(self.horizontalLayout)
+        self.verticalLayout.addWidget(self.topControlWidget)
 
         self.splitter = QSplitter(TabExplorer)
         self.splitter.setObjectName(u"splitter")
@@ -54,7 +61,49 @@ class Ui_TabExplorer(object):
         self.rightPanelLayout.setContentsMargins(0, 0, 0, 0)
         self.rightTopPanel = QWidget(self.rightPanel)
         self.rightTopPanel.setObjectName(u"rightTopPanel")
-        self.rightTopPanel.setMinimumSize(QSize(0, 40))
+        self.rightTopPanel.setMinimumSize(QSize(0, 100))
+        self.verticalLayout_2 = QVBoxLayout(self.rightTopPanel)
+        self.verticalLayout_2.setSpacing(0)
+        self.verticalLayout_2.setObjectName(u"verticalLayout_2")
+        self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
+        self.widget = QWidget(self.rightTopPanel)
+        self.widget.setObjectName(u"widget")
+        self.horizontalLayout = QHBoxLayout(self.widget)
+        self.horizontalLayout.setSpacing(2)
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
+        self.pushButton_3 = QPushButton(self.widget)
+        self.pushButton_3.setObjectName(u"pushButton_3")
+
+        self.horizontalLayout.addWidget(self.pushButton_3)
+
+        self.pushButton = QPushButton(self.widget)
+        self.pushButton.setObjectName(u"pushButton")
+
+        self.horizontalLayout.addWidget(self.pushButton)
+
+        self.pushButton_2 = QPushButton(self.widget)
+        self.pushButton_2.setObjectName(u"pushButton_2")
+
+        self.horizontalLayout.addWidget(self.pushButton_2)
+
+        self.pushButton_4 = QPushButton(self.widget)
+        self.pushButton_4.setObjectName(u"pushButton_4")
+
+        self.horizontalLayout.addWidget(self.pushButton_4)
+
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout.addItem(self.horizontalSpacer)
+
+
+        self.verticalLayout_2.addWidget(self.widget)
+
+        self.widget_2 = QWidget(self.rightTopPanel)
+        self.widget_2.setObjectName(u"widget_2")
+
+        self.verticalLayout_2.addWidget(self.widget_2)
+
 
         self.rightPanelLayout.addWidget(self.rightTopPanel)
 
@@ -81,8 +130,13 @@ class Ui_TabExplorer(object):
 
     def retranslateUi(self, TabExplorer):
         TabExplorer.setWindowTitle(QCoreApplication.translate("TabExplorer", u"\u8d44\u6e90\u6d4f\u89c8", None))
+        self.topControlWidget.setWindowTitle(QCoreApplication.translate("TabExplorer", u"\u8d44\u6e90\u6d4f\u89c8", None))
         self.lineAddress.setPlaceholderText(QCoreApplication.translate("TabExplorer", u"\u8bf7\u8f93\u5165\u76ee\u5f55\u8def\u5f84\uff0c\u4f8b\u5982\uff1aD:/data/ai_assets", None))
         self.btnEnter.setText(QCoreApplication.translate("TabExplorer", u"\u8fdb\u5165", None))
+        self.pushButton_3.setText(QCoreApplication.translate("TabExplorer", u"\u53c2\u8003\u56fe", None))
+        self.pushButton.setText(QCoreApplication.translate("TabExplorer", u"\u89c6\u9891", None))
+        self.pushButton_2.setText(QCoreApplication.translate("TabExplorer", u"\u5e8f\u5217\u5e27", None))
+        self.pushButton_4.setText(QCoreApplication.translate("TabExplorer", u"spine", None))
         ___qtablewidgetitem = self.tableMeta.horizontalHeaderItem(0)
         ___qtablewidgetitem.setText(QCoreApplication.translate("TabExplorer", u"\u952e", None));
         ___qtablewidgetitem1 = self.tableMeta.horizontalHeaderItem(1)
