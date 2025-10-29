@@ -1,6 +1,7 @@
+import logging
 import os
 import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence, Callable
 
 from PySide6.QtCore import QDir, QModelIndex
 from PySide6.QtWidgets import (
@@ -8,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from MuseLog.ui.ui_tab_explorer import Ui_TabExplorer
-
+from PySide6.QtWidgets import QPushButton, QLineEdit, QComboBox, QHBoxLayout
 
 class TabExplorerWidget(QWidget):
     """
@@ -262,8 +263,61 @@ class TabExplorerWidget(QWidget):
                 del self._history[0:overflow]
 
     def _update_custom_widget(self, folder: str, meta: Dict[str, Any]) -> None:
-        """临时占位：后续将 folder/meta 渲染到 widget_custom_show."""
-        print(f"[TabExplorer] 选中目录: {folder}")
+        """根据选中目录动态调整自定义展示区域."""
+        logging.info("[TabExplorer] 选中目录: %s", folder)
+        builder = self._resolve_custom_widget_builder(folder, meta)
+        widgets = builder(folder, meta) if builder else []
+        self._apply_custom_widgets(widgets)
+
+    def _resolve_custom_widget_builder(
+        self, folder: str, meta: Dict[str, Any]
+    ) -> Optional[Callable[[str, Dict[str, Any]], Sequence[QWidget]]]:
+        parent_dir_name = os.path.basename(os.path.dirname(os.path.normpath(folder)))
+        if parent_dir_name == "序列帧":
+            return self._build_sequence_frames_widgets
+        return None
+
+    def _apply_custom_widgets(self, widgets: Sequence[QWidget]) -> None:
+        container = self.ui.widget_custom_show
+        layout = container.layout()
+        if layout is None:
+            layout = QHBoxLayout(container)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(8)
+
+        self._clear_custom_widget(layout)
+
+        for widget in widgets:
+            if widget.parent() is not container:
+                widget.setParent(container)
+            layout.addWidget(widget)
+            widget.show()
+
+        container.setVisible(bool(widgets))
+
+    def _clear_custom_widget(self, layout: QHBoxLayout) -> None:
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+    def _build_sequence_frames_widgets(
+        self, folder: str, meta: Dict[str, Any]
+    ) -> Sequence[QWidget]:
+        container = self.ui.widget_custom_show
+        btn_modify_frame_rate = QPushButton("修改帧率", container)
+        input_frame_rate = QLineEdit(container)
+        btn_modify_animation_type = QPushButton("修改动画类型", container)
+        combo_animation_type = QComboBox(container)
+        combo_animation_type.addItems(["走路", "待机", "死亡", "攻击"])
+        return [
+            btn_modify_frame_rate,
+            input_frame_rate,
+            btn_modify_animation_type,
+            combo_animation_type,
+        ]
+        
 
     def _find_existing_parent(self, path: str) -> Optional[str]:
         candidate = os.path.normpath(path)
