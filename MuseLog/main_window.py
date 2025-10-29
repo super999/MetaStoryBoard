@@ -1,12 +1,12 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QApplication
+from PySide6.QtWidgets import QMainWindow, QApplication
 
-from MuseLog.tab_batch_resize_widget import TabBatchResizeWidget
+from MuseLog.tab_explorer_widget import TabExplorerWidget
 from MuseLog.tab_home_widget import TabHomeWidget
 from MuseLog.tab_settings_widget import TabSettingsWidget
 from MuseLog.ui.ui_main_window import Ui_MainWindow
 
 
-class ImageResizeMainWindow(QMainWindow, Ui_MainWindow):
+class MuseLogMainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
@@ -19,13 +19,14 @@ class ImageResizeMainWindow(QMainWindow, Ui_MainWindow):
         self.btnSettings.clicked.connect(self.open_settings_tab)
         # 用于记录已打开的tab页
         self.opened_tabs = {}
-        # 默认打开首页tab
+        # 默认打开首页和资源浏览tab
         self.open_home_tab()
-        self.open_batch_resize_tab()
+        self.open_explorer_tab()
 
         self.btnBatchResize = getattr(self, 'btnBatchResize', None)
         if self.btnBatchResize:
-            self.btnBatchResize.clicked.connect(self.open_batch_resize_tab)
+            # 将原“批量重命名”按钮用于打开资源浏览页
+            self.btnBatchResize.clicked.connect(self.open_explorer_tab)
 
     def open_home_tab(self):
         tab_key = 'home'
@@ -47,13 +48,13 @@ class ImageResizeMainWindow(QMainWindow, Ui_MainWindow):
         self.opened_tabs[tab_key] = index
         self.tabWidget.setCurrentIndex(index)
 
-    def open_batch_resize_tab(self):
-        tab_key = 'batch_resize'
+    def open_explorer_tab(self):
+        tab_key = 'explorer'
         if tab_key in self.opened_tabs:
             self.tabWidget.setCurrentIndex(self.opened_tabs[tab_key])
             return
-        batch_resize_widget = TabBatchResizeWidget()
-        index = self.tabWidget.addTab(batch_resize_widget, "批量缩放")
+        explorer_widget = TabExplorerWidget()
+        index = self.tabWidget.addTab(explorer_widget, "资源浏览")
         self.opened_tabs[tab_key] = index
         self.tabWidget.setCurrentIndex(index)
 

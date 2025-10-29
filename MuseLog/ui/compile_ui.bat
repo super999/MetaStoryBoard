@@ -5,4 +5,3 @@ for %%f in (*.ui) do (
   pyside6-uic "%%~f" -o "ui_%%~nf.py"
 )
 echo ±‡“ÎÕÍ≥…£°
-pause

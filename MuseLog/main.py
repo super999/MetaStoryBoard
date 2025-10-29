@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QApplication
 from qt_material import list_themes, apply_stylesheet
 
 from MuseLog import logging_utils
-from MuseLog.main_window import ImageResizeMainWindow
+from MuseLog.main_window import MuseLogMainWindow
 
 
 def main():
@@ -23,7 +23,7 @@ def main():
     print(list_themes())
     # 套用“dark_teal.xml”深色主题
     apply_stylesheet(app, theme='dark_cyan.xml')
-    window = ImageResizeMainWindow()
+    window = MuseLogMainWindow()
     window.show()
     sys.exit(app.exec())
 
