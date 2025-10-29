@@ -2,7 +2,7 @@ import logging
 import os
 import re
 from typing import Any, Dict, Optional, Sequence, Callable
-
+from MuseLog.explorer_signals import signal_manager
 from PySide6.QtWidgets import QWidget, QPushButton, QLineEdit, QComboBox, QSizePolicy, QMessageBox
 
 CustomWidgetBuilder = Callable[[QWidget, str, Dict[str, Any]], Sequence[QWidget]]
@@ -44,9 +44,24 @@ def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Di
     input_frame_rate = QLineEdit(container)
     input_frame_rate.setMaximumWidth(60)
     input_frame_rate.setText(str(frame_rate))
+    # 绑定 按钮 事件
+    def on_modify_frame_rate_clicked():
+        new_frame_rate_str = input_frame_rate.text().strip()
+        if not new_frame_rate_str.isdigit():
+            QMessageBox.warning(container, "输入错误", "请输入有效的帧率（正整数）")
+            return
+        new_frame_rate = int(new_frame_rate_str)
+        # 重命名文件夹
+        parent_dir = os.path.dirname(full_folder)
+        new_folder_name = re.sub(r"\(\S+?帧\)", f"(秒抽{new_frame_rate}帧)", folder_name)
+        new_full_folder = os.path.join(parent_dir, new_folder_name)
+        # 发送信号通知更新
+        signal_manager.rename_folder.emit(full_folder, new_full_folder)        
+    btn_modify_frame_rate.clicked.connect(on_modify_frame_rate_clicked)
+    
     btn_modify_animation_type = QPushButton("修改动画类型", container)
     combo_animation_type = QComboBox(container)
-
+    
     combo_animation_type.addItems(ALL_ANIMATION_TYPES)
     if animation_type in ALL_ANIMATION_TYPES:
         pass
@@ -55,6 +70,17 @@ def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Di
     combo_animation_type.setCurrentText(animation_type)
     # combo_animation_type 默认太短， 设置最小宽度
     combo_animation_type.setMinimumWidth(100)
+    # 绑定动画类型修改事件
+    def on_modify_animation_type_clicked():
+        new_animation_type = combo_animation_type.currentText()
+        # 重命名文件夹
+        parent_dir = os.path.dirname(full_folder)
+        new_folder_name = f"(秒抽{frame_rate}帧)-{new_animation_type}"
+        new_full_folder = os.path.join(parent_dir, new_folder_name)
+        # 发送信号通知更新
+        signal_manager.rename_folder.emit(full_folder, new_full_folder)
+    btn_modify_animation_type.clicked.connect(on_modify_animation_type_clicked)
+    
     btn_delete_animation_sequence = QPushButton("删除选中的动画", container)
 
     def on_delete_animation_sequence_clicked():
@@ -62,7 +88,6 @@ def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Di
         reply = QMessageBox.question(container, "确认删除", "您确定要删除选中的动画吗？", QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             # 发送删除信号，这里假设有一个全局的信号管理器 signal_manager
-            from MuseLog.explorer_signals import signal_manager
             signal_manager.delete_selected_animation_sequence.emit()
     btn_delete_animation_sequence.clicked.connect(on_delete_animation_sequence_clicked)
     # 最后加一个 spacer

@@ -52,6 +52,7 @@ class TabExplorerWidget(QWidget):
         
         # 绑定信号
         signal_manager.delete_selected_animation_sequence.connect(self.on_delete_selected_animation_sequence)
+        signal_manager.rename_folder.connect(self.on_update_animation_sequence)
                 
         self._history: List[str] = []
         self._history_limit: int = 50
@@ -465,3 +466,18 @@ class TabExplorerWidget(QWidget):
                 self.navigate_to_path(parent_dir, add_history=False)
         except Exception as e:
             logging.error(f"删除目录失败: {self._current_path}, 错误: {str(e)}")
+    
+    
+    # rename_folder = Signal(str, str)
+    def on_update_animation_sequence(self, old_folder_name: str, new_folder_name: str):
+        logging.info(f"重命名动画序列文件夹: {old_folder_name} -> {new_folder_name}")
+        if not self._current_path:
+            return
+        try:           
+            os.rename(old_folder_name, new_folder_name)
+            logging.info(f"已重命名目录: {old_folder_name} -> {new_folder_name}")
+            parent_dir = os.path.dirname(old_folder_name)
+            self.navigate_to_path(parent_dir, add_history=False)
+            logging.info(f"已导航到父目录: {parent_dir}")
+        except Exception as e:
+            logging.error(f"重命名目录失败: {old_folder_name} -> {new_folder_name}, 错误: {str(e)}")
