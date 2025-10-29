@@ -72,25 +72,25 @@ class Ui_TabExplorer(object):
         self.horizontalLayout.setSpacing(2)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
-        self.pushButton_3 = QPushButton(self.widget)
-        self.pushButton_3.setObjectName(u"pushButton_3")
+        self.btnReference = QPushButton(self.widget)
+        self.btnReference.setObjectName(u"btnReference")
 
-        self.horizontalLayout.addWidget(self.pushButton_3)
+        self.horizontalLayout.addWidget(self.btnReference)
 
-        self.pushButton = QPushButton(self.widget)
-        self.pushButton.setObjectName(u"pushButton")
+        self.btnVideo = QPushButton(self.widget)
+        self.btnVideo.setObjectName(u"btnVideo")
 
-        self.horizontalLayout.addWidget(self.pushButton)
+        self.horizontalLayout.addWidget(self.btnVideo)
 
-        self.pushButton_2 = QPushButton(self.widget)
-        self.pushButton_2.setObjectName(u"pushButton_2")
+        self.btnSequenceFrames = QPushButton(self.widget)
+        self.btnSequenceFrames.setObjectName(u"btnSequenceFrames")
 
-        self.horizontalLayout.addWidget(self.pushButton_2)
+        self.horizontalLayout.addWidget(self.btnSequenceFrames)
 
-        self.pushButton_4 = QPushButton(self.widget)
-        self.pushButton_4.setObjectName(u"pushButton_4")
+        self.btnSpine = QPushButton(self.widget)
+        self.btnSpine.setObjectName(u"btnSpine")
 
-        self.horizontalLayout.addWidget(self.pushButton_4)
+        self.horizontalLayout.addWidget(self.btnSpine)
 
         self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
@@ -133,10 +133,10 @@ class Ui_TabExplorer(object):
         self.topControlWidget.setWindowTitle(QCoreApplication.translate("TabExplorer", u"\u8d44\u6e90\u6d4f\u89c8", None))
         self.lineAddress.setPlaceholderText(QCoreApplication.translate("TabExplorer", u"\u8bf7\u8f93\u5165\u76ee\u5f55\u8def\u5f84\uff0c\u4f8b\u5982\uff1aD:/data/ai_assets", None))
         self.btnEnter.setText(QCoreApplication.translate("TabExplorer", u"\u8fdb\u5165", None))
-        self.pushButton_3.setText(QCoreApplication.translate("TabExplorer", u"\u53c2\u8003\u56fe", None))
-        self.pushButton.setText(QCoreApplication.translate("TabExplorer", u"\u89c6\u9891", None))
-        self.pushButton_2.setText(QCoreApplication.translate("TabExplorer", u"\u5e8f\u5217\u5e27", None))
-        self.pushButton_4.setText(QCoreApplication.translate("TabExplorer", u"spine", None))
+        self.btnReference.setText(QCoreApplication.translate("TabExplorer", u"\u53c2\u8003\u56fe", None))
+        self.btnVideo.setText(QCoreApplication.translate("TabExplorer", u"\u89c6\u9891", None))
+        self.btnSequenceFrames.setText(QCoreApplication.translate("TabExplorer", u"\u5e8f\u5217\u5e27", None))
+        self.btnSpine.setText(QCoreApplication.translate("TabExplorer", u"spine", None))
         ___qtablewidgetitem = self.tableMeta.horizontalHeaderItem(0)
         ___qtablewidgetitem.setText(QCoreApplication.translate("TabExplorer", u"\u952e", None));
         ___qtablewidgetitem1 = self.tableMeta.horizontalHeaderItem(1)

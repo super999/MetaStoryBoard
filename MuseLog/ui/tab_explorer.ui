@@ -115,28 +115,28 @@
               <number>0</number>
              </property>
              <item>
-              <widget class="QPushButton" name="pushButton_3">
+              <widget class="QPushButton" name="btnReference">
                <property name="text">
                 <string>参考图</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="pushButton">
+              <widget class="QPushButton" name="btnVideo">
                <property name="text">
                 <string>视频</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="pushButton_2">
+              <widget class="QPushButton" name="btnSequenceFrames">
                <property name="text">
                 <string>序列帧</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="pushButton_4">
+              <widget class="QPushButton" name="btnSpine">
                <property name="text">
                 <string>spine</string>
                </property>
