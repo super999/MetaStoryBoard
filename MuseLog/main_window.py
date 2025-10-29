@@ -23,10 +23,10 @@ class MuseLogMainWindow(QMainWindow, Ui_MainWindow):
         self.open_home_tab()
         self.open_explorer_tab()
 
-        self.btnBatchResize = getattr(self, 'btnBatchResize', None)
-        if self.btnBatchResize:
-            # 将原“批量重命名”按钮用于打开资源浏览页
-            self.btnBatchResize.clicked.connect(self.open_explorer_tab)
+        self.btnExplorer = getattr(self, 'btnExplorer', None)
+        if self.btnExplorer:
+            # 将原“资源浏览”按钮用于打开资源浏览页
+            self.btnExplorer.clicked.connect(self.open_explorer_tab)
 
     def open_home_tab(self):
         tab_key = 'home'

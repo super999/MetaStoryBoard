@@ -38,9 +38,9 @@
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="btnBatchResize">
+        <widget class="QPushButton" name="btnExplorer">
          <property name="text">
-          <string>批量重命名</string>
+          <string>资源浏览</string>
          </property>
         </widget>
        </item>

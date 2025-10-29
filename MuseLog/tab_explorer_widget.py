@@ -37,6 +37,10 @@ class TabExplorerWidget(QWidget):
         self.ui.btnEnter.clicked.connect(self.on_enter_clicked)
         self.ui.lineAddress.returnPressed.connect(self.on_enter_clicked)
         self.ui.treeView.selectionModel().selectionChanged.connect(self.on_tree_selection_changed)
+        self.ui.btnReference.clicked.connect(self.on_reference_clicked)
+        self.ui.btnSequenceFrames.clicked.connect(self.on_sequence_frames_clicked)
+        self.ui.btnSpine.clicked.connect(self.on_spine_clicked)
+        self.ui.btnVideo.clicked.connect(self.on_video_clicked)
 
         # 初始化地址
         start_path = default_path or QDir.homePath()
@@ -190,3 +194,56 @@ class TabExplorerWidget(QWidget):
             pass
         return out
 
+    def on_reference_clicked(self):
+        # 检查当前目录下是否有 “参考图” 的子目录
+        current_path = self.ui.lineAddress.text().strip()
+        ref_dir = os.path.join(current_path, "参考图")
+        if os.path.isdir(ref_dir):
+            self.navigate_to_path(ref_dir)
+        else:
+            # 若没有，则创建该目录，并导航过去
+            try:
+                os.makedirs(ref_dir, exist_ok=True)
+                self.navigate_to_path(ref_dir)
+            except Exception as e:
+                QMessageBox.warning(self, "错误", f"无法创建参考图目录：\n{str(e)}", QMessageBox.Ok)
+                
+    # on_sequence_frames_clicked
+    def on_sequence_frames_clicked(self):
+        current_path = self.ui.lineAddress.text().strip()
+        seq_dir = os.path.join(current_path, "序列帧")
+        if os.path.isdir(seq_dir):
+            self.navigate_to_path(seq_dir)
+        else:
+            try:
+                os.makedirs(seq_dir, exist_ok=True)
+                self.navigate_to_path(seq_dir)
+            except Exception as e:
+                QMessageBox.warning(self, "错误", f"无法创建序列帧目录：\n{str(e)}", QMessageBox.Ok)
+    
+    # on_spine_clicked
+    def on_spine_clicked(self):
+        current_path = self.ui.lineAddress.text().strip()
+        spine_dir = os.path.join(current_path, "Spine")
+        if os.path.isdir(spine_dir):
+            self.navigate_to_path(spine_dir)
+        else:
+            try:
+                os.makedirs(spine_dir, exist_ok=True)
+                self.navigate_to_path(spine_dir)
+            except Exception as e:
+                QMessageBox.warning(self, "错误", f"无法创建Spine目录：\n{str(e)}", QMessageBox.Ok)
+                
+    # on_video_clicked
+    def on_video_clicked(self):
+        current_path = self.ui.lineAddress.text().strip()
+        video_dir = os.path.join(current_path, "视频")
+        if os.path.isdir(video_dir):
+            self.navigate_to_path(video_dir)
+        else:
+            try:
+                os.makedirs(video_dir, exist_ok=True)
+                self.navigate_to_path(video_dir)
+            except Exception as e:
+                QMessageBox.warning(self, "错误", f"无法创建视频目录：\n{str(e)}", QMessageBox.Ok)
+                
