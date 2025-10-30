@@ -28,11 +28,27 @@ class Ui_Form(object):
         self.verticalLayout.setSpacing(1)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.label = QLabel(Form)
+        self.widget_2 = QWidget(Form)
+        self.widget_2.setObjectName(u"widget_2")
+        self.horizontalLayout_2 = QHBoxLayout(self.widget_2)
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.label = QLabel(self.widget_2)
         self.label.setObjectName(u"label")
         self.label.setMaximumSize(QSize(16777215, 16))
 
-        self.verticalLayout.addWidget(self.label)
+        self.horizontalLayout_2.addWidget(self.label)
+
+        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_2.addItem(self.horizontalSpacer_2)
+
+        self.closeButton = QPushButton(self.widget_2)
+        self.closeButton.setObjectName(u"closeButton")
+
+        self.horizontalLayout_2.addWidget(self.closeButton)
+
+
+        self.verticalLayout.addWidget(self.widget_2)
 
         self.textEdit = QTextEdit(Form)
         self.textEdit.setObjectName(u"textEdit")
@@ -85,6 +101,7 @@ class Ui_Form(object):
     def retranslateUi(self, Form):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
         self.label.setText(QCoreApplication.translate("Form", u"\u63d0\u793a\u8bcd", None))
+        self.closeButton.setText(QCoreApplication.translate("Form", u"\u5173\u95ed", None))
         self.label_2.setText(QCoreApplication.translate("Form", u"\u53c2\u8003\u56fe", None))
         self.saveButton.setText(QCoreApplication.translate("Form", u"\u4fdd\u5b58", None))
         self.cancelButton.setText(QCoreApplication.translate("Form", u"\u53d6\u6d88", None))

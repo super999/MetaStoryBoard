@@ -241,13 +241,11 @@ class TabExplorerWidget(QWidget):
     def collect_metadata(self, folder: str) -> Dict[str, MetaStruct]:
         meta: Dict[str, MetaStruct]={"目录": MetaStruct(folder)}
         # 1) 常见的提示词 / 参数文件
-        prompt_text=self._read_first_text([
-            os.path.join(folder, name) for name in (
-                "prompt.txt", "prompts.txt", "neg_prompt.txt", "caption.txt"
-            )
-        ])
-        if prompt_text:
-            meta["提示词"]=MetaStruct("提示词", prompt_text.strip()[:2000])
+        prompt_text_count = 0
+        for name in ("提示词.txt", "prompt.txt", "prompts.txt", "neg_prompt.txt", "caption.txt"):
+            if self._check_file_exists(os.path.join(folder, name)):
+                meta[f'提示词_{prompt_text_count}']=MetaStruct(name,op_type='打开文本文件',op_name='查看',op_data=os.path.join(folder, name))                
+                prompt_text_count += 1
 
         # 2) 常见 JSON 参数/元数据
         json_data=self._read_first_json([
@@ -393,7 +391,12 @@ class TabExplorerWidget(QWidget):
         self.ui.btnRefresh.setEnabled(current_exists)
 
     # ---------------------- 工具函数 ----------------------
+    def _check_file_exists(self, path: str) -> bool:
+        return os.path.isfile(path)
+    
+    
     def _read_first_text(self, paths: List[str]) -> Optional[str]:
+        # 读取第一个存在的文本文件内容
         for p in paths:
             try:
                 if os.path.isfile(p):
@@ -551,8 +554,31 @@ class TabExplorerWidget(QWidget):
             logging.info(f"显示视频元数据: {video_path}")
             if self._video_detail_widget is None:
                 self._video_detail_widget = VideoDetailWidget(self.ui.DetailWidget)
+                # 连接关闭信号
+                self._video_detail_widget.notify_close.connect(self._clear_detail_widget)
             self._video_detail_widget.set_video(video_path)
             self._show_detail_widget(self._video_detail_widget)
+            return
+        if op_type == "打开文本文件":
+            file_path=str(op_data)
+            logging.info(f"打开文本文件: {file_path}")
+            try:
+                # 用系统默认程序打开文本文件
+                if os.path.isfile(file_path):
+                    os.startfile(file_path)
+                else:
+                    QMessageBox.warning(self, "文件不存在", f"文件不存在：\n{file_path}", QMessageBox.Ok)
+                    return
+            except Exception as e:
+                QMessageBox.warning(self, "读取文件失败", f"无法读取文件：\n{file_path}\n错误：{str(e)}", QMessageBox.Ok)
+                return
+            # 显示文本内容的简单对话框
+            text_dialog=QMessageBox(self)
+            text_dialog.setWindowTitle(f"查看文本文件 - {os.path.basename(file_path)}")
+            text_dialog.setTextInteractionFlags(text_dialog.textInteractionFlags() | Qt.TextSelectableByMouse)
+            text_dialog.setDetailedText(content)
+            text_dialog.setStandardButtons(QMessageBox.Ok)
+            text_dialog.exec()
             return
         logging.debug("未处理的元数据操作类型: %s", op_type)
         # 其他操作类型可在此扩展
