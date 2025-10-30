@@ -3,13 +3,13 @@ import os
 import json
 from typing import Dict, Any, List, Optional, Sequence
 
-from PySide6.QtCore import QDir, QModelIndex
+from PySide6.QtCore import QDir, QModelIndex, Qt
 from PySide6.QtWidgets import (
     QWidget, QFileSystemModel, QMessageBox, QTableWidgetItem
 )
 
 from MuseLog.ui.ui_tab_explorer import Ui_TabExplorer
-from PySide6.QtWidgets import QHBoxLayout, QHeaderView, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import QHBoxLayout, QHeaderView, QMenu, QPushButton, QVBoxLayout
 
 from MuseLog.explorer_custom_widgets import resolve_custom_widget_builder
 from MuseLog.explorer_signals import signal_manager
@@ -66,6 +66,10 @@ class TabExplorerWidget(QWidget):
         self.ui.btnBack.clicked.connect(self.on_back_clicked)
         self.ui.btnGoUp.clicked.connect(self.on_go_up_clicked)
         self.ui.btnRefresh.clicked.connect(self.on_refresh_clicked)
+        
+        # 绑定 树 右键事件，弹出菜单
+        self.ui.treeView.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.ui.treeView.customContextMenuRequested.connect(self.on_tree_context_menu)
 
         # 绑定信号
         signal_manager.delete_selected_animation_sequence.connect(self.on_delete_selected_animation_sequence)
@@ -196,6 +200,65 @@ class TabExplorerWidget(QWidget):
         except Exception:
             pass
         self.navigate_to_path(current_path, add_history=False, update_tree=True)
+
+    def on_tree_context_menu(self, point):
+        index = self.ui.treeView.indexAt(point)
+        if not index.isValid():
+            return
+
+        folder_path = self.model.filePath(index)
+        if not folder_path or not os.path.isdir(folder_path):
+            return
+
+        menu = QMenu(self.ui.treeView)
+        delete_action = menu.addAction("删除文件夹")
+        action = menu.exec(self.ui.treeView.viewport().mapToGlobal(point))
+        if action == delete_action:
+            self._confirm_delete_folder(folder_path)
+
+    def _confirm_delete_folder(self, folder_path: str) -> None:
+        normalized_path = os.path.normpath(folder_path)
+        if not os.path.isdir(normalized_path):
+            QMessageBox.warning(self, "删除失败", f"目录不存在：\n{normalized_path}", QMessageBox.Ok)
+            return
+
+        parent_dir = os.path.dirname(normalized_path)
+        if not parent_dir or os.path.normcase(parent_dir) == os.path.normcase(normalized_path):
+            QMessageBox.warning(self, "删除失败", "无法删除根目录。", QMessageBox.Ok)
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "确认删除",
+            f"确定要删除以下目录及其全部内容吗？\n{normalized_path}",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        try:
+            import shutil
+
+            shutil.rmtree(normalized_path)
+        except Exception as exc:
+            logging.exception("删除目录失败: %s", normalized_path)
+            QMessageBox.critical(self, "删除失败", f"删除目录时发生错误：\n{normalized_path}\n错误：{exc}")
+            return
+
+        logging.info("已删除目录: %s", normalized_path)
+        normalized_to_remove = self._normalize_path(normalized_path)
+        self._history = [h for h in self._history if self._normalize_path(h) != normalized_to_remove]
+
+        if self._normalize_path(self._current_path) == normalized_to_remove:
+            self._current_path = None
+            self._clear_detail_widget()
+
+        target_dir = parent_dir if os.path.isdir(parent_dir) else self._find_existing_parent(parent_dir)
+        if not target_dir:
+            target_dir = QDir.homePath()
+
+        self.navigate_to_path(target_dir, add_history=False)
 
     # ---------------------- 元数据收集与显示 ----------------------
     def show_directory_metadata(self, folder: str):
@@ -572,13 +635,14 @@ class TabExplorerWidget(QWidget):
             except Exception as e:
                 QMessageBox.warning(self, "读取文件失败", f"无法读取文件：\n{file_path}\n错误：{str(e)}", QMessageBox.Ok)
                 return
-            # 显示文本内容的简单对话框
-            text_dialog=QMessageBox(self)
-            text_dialog.setWindowTitle(f"查看文本文件 - {os.path.basename(file_path)}")
-            text_dialog.setTextInteractionFlags(text_dialog.textInteractionFlags() | Qt.TextSelectableByMouse)
-            text_dialog.setDetailedText(content)
-            text_dialog.setStandardButtons(QMessageBox.Ok)
-            text_dialog.exec()
+            # content = self._read_first_text([file_path]) or "（无法读取文本内容或内容为空）"
+            # # 显示文本内容的简单对话框
+            # text_dialog=QMessageBox(self)
+            # text_dialog.setWindowTitle(f"查看文本文件 - {os.path.basename(file_path)}")
+            # text_dialog.setTextInteractionFlags(text_dialog.textInteractionFlags() | Qt.TextSelectableByMouse)
+            # text_dialog.setDetailedText(content)
+            # text_dialog.setStandardButtons(QMessageBox.Ok)
+            # text_dialog.exec()
             return
         if op_type == "打开文件夹":
             logging.info(f"打开文件夹: {op_data}")
