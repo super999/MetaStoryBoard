@@ -9,10 +9,11 @@ from PySide6.QtWidgets import (
 )
 
 from MuseLog.ui.ui_tab_explorer import Ui_TabExplorer
-from PySide6.QtWidgets import QHBoxLayout, QHeaderView, QPushButton
+from PySide6.QtWidgets import QHBoxLayout, QHeaderView, QPushButton, QVBoxLayout
 
 from MuseLog.explorer_custom_widgets import resolve_custom_widget_builder
 from MuseLog.explorer_signals import signal_manager
+from MuseLog.widget_video_detail import VideoDetailWidget
 
 
 class MetaStruct:
@@ -75,6 +76,16 @@ class TabExplorerWidget(QWidget):
         self._current_path: Optional[str] = None
         self._suppress_tree_selection: bool = False
         self._suppress_history: bool = False
+        self._current_detail_widget: Optional[QWidget] = None
+        self._video_detail_widget: Optional[VideoDetailWidget] = None
+
+        # Detail 区域布局
+        detail_layout = self.ui.DetailWidget.layout()
+        if detail_layout is None:
+            detail_layout = QVBoxLayout(self.ui.DetailWidget)
+            detail_layout.setContentsMargins(0, 0, 0, 0)
+            detail_layout.setSpacing(0)
+        self._detail_layout = detail_layout
 
         self._update_nav_buttons()
 
@@ -189,6 +200,7 @@ class TabExplorerWidget(QWidget):
     # ---------------------- 元数据收集与显示 ----------------------
     def show_directory_metadata(self, folder: str):
         meta: Dict[str, MetaStruct] = self.collect_metadata(folder)
+        self._clear_detail_widget()
         self._update_custom_widget(folder, meta)
         self.populate_table(meta)
 
@@ -217,8 +229,11 @@ class TabExplorerWidget(QWidget):
             self.ui.tableMeta.setItem(i, 0, QTableWidgetItem(str(k)))
             self.ui.tableMeta.setItem(i, 1, QTableWidgetItem(v_str))
             if v_op:                
-                button = QPushButton(v.op_name, self.ui.tableMeta)
-                button.clicked.connect(lambda _, op=v.op_data: self.on_metadata_operation_clicked(v_op, op))
+                button = QPushButton(v.op_name or "操作", self.ui.tableMeta)
+                op_data = v.op_data
+                button.clicked.connect(
+                    lambda _, opt=v_op, data=op_data: self.on_metadata_operation_clicked(opt, data)
+                )
                 # 直接把 button 设置到 table 的指定位置
                 self.ui.tableMeta.setCellWidget(i, 2, button)
         self.ui.tableMeta.resizeColumnToContents(0)
@@ -326,6 +341,29 @@ class TabExplorerWidget(QWidget):
             widget=item.widget()
             if widget is not None:
                 widget.deleteLater()
+
+    def _show_detail_widget(self, widget: QWidget) -> None:
+        if self._current_detail_widget is widget:
+            widget.show()
+            return
+
+        if self._current_detail_widget is not None and self._current_detail_widget is not widget:
+            self._detail_layout.removeWidget(self._current_detail_widget)
+            self._current_detail_widget.setParent(None)
+
+        if widget.parent() is not self.ui.DetailWidget:
+            widget.setParent(self.ui.DetailWidget)
+        if self._detail_layout.indexOf(widget) == -1:
+            self._detail_layout.addWidget(widget)
+        widget.show()
+        self._current_detail_widget = widget
+
+    def _clear_detail_widget(self) -> None:
+        if self._current_detail_widget is not None:
+            self._detail_layout.removeWidget(self._current_detail_widget)
+            self._current_detail_widget.hide()
+            self._current_detail_widget.setParent(None)
+            self._current_detail_widget = None
 
 
     def _find_existing_parent(self, path: str) -> Optional[str]:
@@ -511,7 +549,10 @@ class TabExplorerWidget(QWidget):
         if op_type == "视频元数据":
             video_path=str(op_data)
             logging.info(f"显示视频元数据: {video_path}")
-            # 在 detailWidget 中 加载 widget 
-            
-            self.ui.DetailWidget
+            if self._video_detail_widget is None:
+                self._video_detail_widget = VideoDetailWidget(self.ui.DetailWidget)
+            self._video_detail_widget.set_video(video_path)
+            self._show_detail_widget(self._video_detail_widget)
+            return
+        logging.debug("未处理的元数据操作类型: %s", op_type)
         # 其他操作类型可在此扩展
