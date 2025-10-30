@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import shutil
 from typing import Any, Dict, Optional, Sequence, Callable
 from MuseLog.explorer_signals import signal_manager
 from PySide6.QtWidgets import QWidget, QPushButton, QLineEdit, QComboBox, QSizePolicy, QMessageBox
@@ -17,6 +18,8 @@ def resolve_custom_widget_builder(folder: str, meta: Dict[str, Any]) -> Optional
         return build_spine_widgets
     if folder_name.lower() == "序列帧":
         return build_sequence_frames_widgets_parent
+    if folder_name.lower() == "spine-导出":
+        return build_spine_export_widgets
     return None
 
 
@@ -105,17 +108,55 @@ def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Di
 
 def build_spine_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
     btn_create_spine_export = QPushButton("创建 spine-导出 文件夹", container)
-
     def on_create_spine_export_clicked():
         parent_dir = os.path.dirname(full_folder)
         spine_export_folder = os.path.join(parent_dir, "spine-导出")
         os.makedirs(spine_export_folder, exist_ok=True)
         QMessageBox.information(container, "创建成功", f"已成功创建 {spine_export_folder}")
     btn_create_spine_export.clicked.connect(on_create_spine_export_clicked)
+    #  拷贝 序列帧 到 images
+    btn_copy_sequence_frames = QPushButton("拷贝 序列帧 到 images", container)
+    def on_copy_sequence_frames_clicked():
+        logging.info(f"Copying sequence frames to images folder at: {full_folder}")
+        parent_dir = os.path.dirname(full_folder)
+        sequence_frames_source_folder = os.path.join(parent_dir, "序列帧")
+        images_folder = os.path.join(full_folder, "images")
+        # 先创建 images 文件夹
+        os.makedirs(images_folder, exist_ok=True)
+        shutil.copytree(sequence_frames_source_folder, images_folder, dirs_exist_ok=True)        
+        QMessageBox.information(container, "操作成功", f"已成功将序列帧拷贝到 {images_folder}")
+    btn_copy_sequence_frames.clicked.connect(on_copy_sequence_frames_clicked)
+    # 清理 images 里 多余的文件夹， 格式如： spine\images\XXX\preds-BiRefNet_resize, 若 XXX 下有多个文件夹， 且有preds-BiRefNet_resize， 则删除 同级下的 其他文件夹和文件
+    btn_clean_extra_folders = QPushButton("清理 images 多余文件夹", container)
+    def on_clean_extra_folders_clicked():
+        images_dir = os.path.join(full_folder, "images")
+        if not os.path.exists(images_dir):
+            QMessageBox.warning(container, "操作失败", f"{images_dir} 不存在")
+            return
+        for item in os.listdir(images_dir):
+            item_path = os.path.join(images_dir, item)
+            if os.path.isdir(item_path):
+                subfolders = os.listdir(item_path)
+                preds_folder = 'preds-BiRefNet_resize'
+                if preds_folder in subfolders:
+                    for f in subfolders:
+                        if f != preds_folder:
+                            folder_to_remove = os.path.join(item_path, f)
+                            if os.path.isfile(folder_to_remove):
+                                os.remove(folder_to_remove)
+                            elif os.path.isdir(folder_to_remove):
+                                shutil.rmtree(folder_to_remove)
+                            logging.info(f"Removed extra folder: {folder_to_remove}")
+        QMessageBox.information(container, "操作成功", "已清理 images 多余文件夹")
+    btn_clean_extra_folders.clicked.connect(on_clean_extra_folders_clicked)
     spacer = QWidget(container)
     spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-    return [btn_create_spine_export, spacer]
+    return [btn_create_spine_export, btn_copy_sequence_frames, btn_clean_extra_folders, spacer]
 
+def build_spine_export_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
+    spacer = QWidget(container)
+    spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    return [ spacer]
 
 def build_sequence_frames_widgets_parent(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
     btn_create_animation_sequence = QPushButton("创建 动画序列帧", container)

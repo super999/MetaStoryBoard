@@ -78,6 +78,12 @@ python MuseLog\main.py
 
 ---
 
+6) pyinstaller 打包（可选）
+如果需要将应用打包为独立的可执行文件，可以使用 `pyinstaller`：
+```
+pyinstaller --onefile --windowed launch.py --console  --name="灵图绘卷"
+```
+
 ## 常见问题（FAQ）
 
 ### 1) 运行时报 `ModuleNotFoundError: No module named 'image_resize_tool'`？

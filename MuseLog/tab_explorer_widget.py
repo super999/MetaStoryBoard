@@ -239,7 +239,7 @@ class TabExplorerWidget(QWidget):
         self.ui.tableMeta.resizeColumnToContents(0)
 
     def collect_metadata(self, folder: str) -> Dict[str, MetaStruct]:
-        meta: Dict[str, MetaStruct]={"目录": MetaStruct(folder)}
+        meta: Dict[str, MetaStruct]={"目录": MetaStruct(folder, op_type='打开文件夹', op_name='打开', op_data=folder)}
         # 1) 常见的提示词 / 参数文件
         prompt_text_count = 0
         for name in ("提示词.txt", "prompt.txt", "prompts.txt", "neg_prompt.txt", "caption.txt"):
@@ -580,5 +580,15 @@ class TabExplorerWidget(QWidget):
             text_dialog.setStandardButtons(QMessageBox.Ok)
             text_dialog.exec()
             return
+        if op_type == "打开文件夹":
+            logging.info(f"打开文件夹: {op_data}")
+            try:
+                # 使用系统文件管理器打开文件夹
+                folder_path=str(op_data)
+                os.startfile(folder_path)
+                return
+            except Exception as e:
+                QMessageBox.warning(self, "打开文件夹失败", f"无法打开文件夹：\n{folder_path}\n错误：{str(e)}", QMessageBox.Ok)
+                return
         logging.debug("未处理的元数据操作类型: %s", op_type)
         # 其他操作类型可在此扩展
