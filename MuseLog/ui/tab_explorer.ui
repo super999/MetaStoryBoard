@@ -136,7 +136,7 @@
            <number>0</number>
           </property>
           <item>
-           <widget class="QWidget" name="widget" native="true">
+           <widget class="QWidget" name="buttonWidget" native="true">
             <layout class="QHBoxLayout" name="horizontalLayout">
              <property name="spacing">
               <number>2</number>
@@ -204,17 +204,72 @@
         </widget>
        </item>
        <item>
-        <widget class="QTableWidget" name="tableMeta">
-         <column>
-          <property name="text">
-           <string>键</string>
+        <widget class="QWidget" name="metaDataPanel" native="true">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>150</height>
+          </size>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_3">
+          <property name="leftMargin">
+           <number>0</number>
           </property>
-         </column>
-         <column>
-          <property name="text">
-           <string>值</string>
+          <property name="topMargin">
+           <number>0</number>
           </property>
-         </column>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="QWidget" name="otherWidget" native="true">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>10</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>16777215</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="tableMeta">
+            <column>
+             <property name="text">
+              <string>键</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>值</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>操作</string>
+             </property>
+            </column>
+           </widget>
+          </item>
+          <item>
+           <widget class="QWidget" name="DetailWidget" native="true">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>10</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </widget>
        </item>
       </layout>

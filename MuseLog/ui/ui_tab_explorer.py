@@ -84,28 +84,28 @@ class Ui_TabExplorer(object):
         self.verticalLayout_2.setSpacing(0)
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
-        self.widget = QWidget(self.rightTopPanel)
-        self.widget.setObjectName(u"widget")
-        self.horizontalLayout = QHBoxLayout(self.widget)
+        self.buttonWidget = QWidget(self.rightTopPanel)
+        self.buttonWidget.setObjectName(u"buttonWidget")
+        self.horizontalLayout = QHBoxLayout(self.buttonWidget)
         self.horizontalLayout.setSpacing(2)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
-        self.btnReference = QPushButton(self.widget)
+        self.btnReference = QPushButton(self.buttonWidget)
         self.btnReference.setObjectName(u"btnReference")
 
         self.horizontalLayout.addWidget(self.btnReference)
 
-        self.btnVideo = QPushButton(self.widget)
+        self.btnVideo = QPushButton(self.buttonWidget)
         self.btnVideo.setObjectName(u"btnVideo")
 
         self.horizontalLayout.addWidget(self.btnVideo)
 
-        self.btnSequenceFrames = QPushButton(self.widget)
+        self.btnSequenceFrames = QPushButton(self.buttonWidget)
         self.btnSequenceFrames.setObjectName(u"btnSequenceFrames")
 
         self.horizontalLayout.addWidget(self.btnSequenceFrames)
 
-        self.btnSpine = QPushButton(self.widget)
+        self.btnSpine = QPushButton(self.buttonWidget)
         self.btnSpine.setObjectName(u"btnSpine")
 
         self.horizontalLayout.addWidget(self.btnSpine)
@@ -115,7 +115,7 @@ class Ui_TabExplorer(object):
         self.horizontalLayout.addItem(self.horizontalSpacer)
 
 
-        self.verticalLayout_2.addWidget(self.widget)
+        self.verticalLayout_2.addWidget(self.buttonWidget)
 
         self.widget_custom_show = QWidget(self.rightTopPanel)
         self.widget_custom_show.setObjectName(u"widget_custom_show")
@@ -125,16 +125,40 @@ class Ui_TabExplorer(object):
 
         self.rightPanelLayout.addWidget(self.rightTopPanel)
 
-        self.tableMeta = QTableWidget(self.rightPanel)
-        if (self.tableMeta.columnCount() < 2):
-            self.tableMeta.setColumnCount(2)
+        self.metaDataPanel = QWidget(self.rightPanel)
+        self.metaDataPanel.setObjectName(u"metaDataPanel")
+        self.metaDataPanel.setMinimumSize(QSize(0, 150))
+        self.verticalLayout_3 = QVBoxLayout(self.metaDataPanel)
+        self.verticalLayout_3.setObjectName(u"verticalLayout_3")
+        self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
+        self.otherWidget = QWidget(self.metaDataPanel)
+        self.otherWidget.setObjectName(u"otherWidget")
+        self.otherWidget.setMinimumSize(QSize(0, 10))
+        self.otherWidget.setMaximumSize(QSize(16777215, 16777215))
+
+        self.verticalLayout_3.addWidget(self.otherWidget)
+
+        self.tableMeta = QTableWidget(self.metaDataPanel)
+        if (self.tableMeta.columnCount() < 3):
+            self.tableMeta.setColumnCount(3)
         __qtablewidgetitem = QTableWidgetItem()
         self.tableMeta.setHorizontalHeaderItem(0, __qtablewidgetitem)
         __qtablewidgetitem1 = QTableWidgetItem()
         self.tableMeta.setHorizontalHeaderItem(1, __qtablewidgetitem1)
+        __qtablewidgetitem2 = QTableWidgetItem()
+        self.tableMeta.setHorizontalHeaderItem(2, __qtablewidgetitem2)
         self.tableMeta.setObjectName(u"tableMeta")
 
-        self.rightPanelLayout.addWidget(self.tableMeta)
+        self.verticalLayout_3.addWidget(self.tableMeta)
+
+        self.DetailWidget = QWidget(self.metaDataPanel)
+        self.DetailWidget.setObjectName(u"DetailWidget")
+        self.DetailWidget.setMinimumSize(QSize(0, 10))
+
+        self.verticalLayout_3.addWidget(self.DetailWidget)
+
+
+        self.rightPanelLayout.addWidget(self.metaDataPanel)
 
         self.splitter.addWidget(self.rightPanel)
 
@@ -162,5 +186,7 @@ class Ui_TabExplorer(object):
         ___qtablewidgetitem.setText(QCoreApplication.translate("TabExplorer", u"\u952e", None));
         ___qtablewidgetitem1 = self.tableMeta.horizontalHeaderItem(1)
         ___qtablewidgetitem1.setText(QCoreApplication.translate("TabExplorer", u"\u503c", None));
+        ___qtablewidgetitem2 = self.tableMeta.horizontalHeaderItem(2)
+        ___qtablewidgetitem2.setText(QCoreApplication.translate("TabExplorer", u"\u64cd\u4f5c", None));
     # retranslateUi
 
