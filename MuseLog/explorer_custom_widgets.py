@@ -20,6 +20,8 @@ def resolve_custom_widget_builder(folder: str, meta: Dict[str, Any]) -> Optional
         return build_sequence_frames_widgets_parent
     if folder_name.lower() == "spine-导出":
         return build_spine_export_widgets
+    if folder_name.lower() == "json42":
+        return build_json42_widgets
     return None
 
 
@@ -152,7 +154,7 @@ def build_spine_widgets(container: QWidget, full_folder: str, meta: Dict[str, An
     # 创建 spine 模板， 从 D:\美术资源\spine角色\地球危机-模板\僵尸模板\ske-template-01.spine 拷贝到 spine 文件夹内，并重命名为 XXX.spine ， XXX 为 当前 spine 文件夹的上级文件夹名称
     btn_create_spine_template = QPushButton("创建 spine 模板", container)
     def on_create_spine_template_clicked():
-        template_source_path = r"D:\美术资源\spine角色\地球危机-模板\僵尸模板\ske-template-01.spine"
+        template_source_path = r"D:\\美术资源\\spine角色\\地球危机-模板\\僵尸模板\\ske-template-01.spine"
         if not os.path.exists(template_source_path):
             QMessageBox.warning(container, "操作失败", f"模板文件不存在: {template_source_path}")
             return
@@ -166,9 +168,59 @@ def build_spine_widgets(container: QWidget, full_folder: str, meta: Dict[str, An
     return [btn_create_spine_export, btn_copy_sequence_frames, btn_clean_extra_folders, btn_create_spine_template, spacer]
 
 def build_spine_export_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
+    # 创建 json42 按钮
+    btn_create_spine_export = QPushButton("创建 json42 文件夹", container)
+    def on_create_spine_export_clicked():
+        json42_folder = os.path.join(full_folder, "json42")
+        os.makedirs(json42_folder, exist_ok=True)
+        QMessageBox.information(container, "创建成功", f"已成功创建 {json42_folder}")
+    btn_create_spine_export.clicked.connect(on_create_spine_export_clicked)
     spacer = QWidget(container)
     spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-    return [ spacer]
+    return [btn_create_spine_export, spacer]
+
+def build_json42_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
+    # 拷贝 json42 文件夹 到 游戏项目的怪物文件夹下 如 D:\cocos_workspace\oops-game-kit\assets\resources-spine\art-spine\monsters\jiangshi_08
+    btn_copy_json42_file = QPushButton("拷贝 json42 文件夹 到 游戏项目怪物文件夹", container)
+    input_game_monster_number = QLineEdit(container) # 怪物编号输入框
+    input_game_monster_number.setMaximumWidth(100)
+    base_game_monster_path = r"D:\\cocos_workspace\\oops-game-kit\\assets\\resources-spine\\art-spine\\monsters"
+    monster_folder_name = f'jiangshi_{meta.get("monster_number", "00")}'
+    def on_copy_json42_file_clicked():
+        game_monster_number = input_game_monster_number.text().strip()
+        if not game_monster_number:
+            QMessageBox.warning(container, "操作失败", "请填写怪物编号")
+            return
+        source_folder = full_folder
+        dest_folder = os.path.join(base_game_monster_path, f"jiangshi_{game_monster_number}")
+        shutil.copytree(source_folder, dest_folder, dirs_exist_ok=True)
+        # 修改 xx.json 为 .atlas 同名的文件名
+        all_files = os.listdir(dest_folder)
+        # 查找 .atlas 文件
+        atlas_file = None
+        for f in all_files:
+            if f.endswith('.atlas'):
+                atlas_file = f
+                break
+        # 修改同名的 .json 文件
+        json_file = None
+        for f in all_files:
+            if f.endswith('.json'):
+                json_file = f
+                break
+        if atlas_file and json_file:
+            new_json_file_name = atlas_file.replace('.atlas', '.json')
+            old_json_file_path = os.path.join(dest_folder, json_file)
+            new_json_file_path = os.path.join(dest_folder, new_json_file_name)
+            os.rename(old_json_file_path, new_json_file_path)
+            logging.info(f"Renamed {old_json_file_path} to {new_json_file_path}")
+        QMessageBox.information(container, "拷贝成功", f"已成功拷贝 {source_folder} 到 {dest_folder}")
+        # 弹出资源管理器打开目标文件夹
+        os.startfile(dest_folder)
+    btn_copy_json42_file.clicked.connect(on_copy_json42_file_clicked)
+    spacer = QWidget(container)
+    spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    return [btn_copy_json42_file, input_game_monster_number, spacer]
 
 def build_sequence_frames_widgets_parent(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
     btn_create_animation_sequence = QPushButton("创建 动画序列帧", container)
