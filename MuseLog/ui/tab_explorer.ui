@@ -182,6 +182,13 @@
               </widget>
              </item>
              <item>
+              <widget class="QPushButton" name="btnSizeModify">
+               <property name="text">
+                <string>尺寸修改</string>
+               </property>
+              </widget>
+             </item>
+             <item>
               <spacer name="horizontalSpacer">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>

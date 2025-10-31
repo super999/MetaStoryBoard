@@ -63,6 +63,7 @@ class TabExplorerWidget(QWidget):
         self.ui.btnSequenceFrames.clicked.connect(self.on_sequence_frames_clicked)
         self.ui.btnSpine.clicked.connect(self.on_spine_clicked)
         self.ui.btnVideo.clicked.connect(self.on_video_clicked)
+        self.ui.btnSizeModify.clicked.connect(self.on_size_modify_clicked)
         self.ui.btnBack.clicked.connect(self.on_back_clicked)
         self.ui.btnGoUp.clicked.connect(self.on_go_up_clicked)
         self.ui.btnRefresh.clicked.connect(self.on_refresh_clicked)
@@ -600,6 +601,18 @@ class TabExplorerWidget(QWidget):
                 self.navigate_to_path(video_dir)
             except Exception as e:
                 QMessageBox.warning(self, "错误", f"无法创建视频目录：\n{str(e)}", QMessageBox.Ok)
+    
+    def on_size_modify_clicked(self):
+        current_path=self.ui.lineAddress.text().strip()
+        size_modify_dir=os.path.join(current_path, "尺寸修改")
+        if os.path.isdir(size_modify_dir):
+            self.navigate_to_path(size_modify_dir)
+        else:
+            try:
+                os.makedirs(size_modify_dir, exist_ok=True)
+                self.navigate_to_path(size_modify_dir)
+            except Exception as e:
+                QMessageBox.warning(self, "错误", f"无法创建尺寸修改目录：\n{str(e)}", QMessageBox.Ok)
 
     def on_delete_selected_animation_sequence(self):
         logging.info(f"删除选中的动画序列, 当前选中路径: {self._current_path}")

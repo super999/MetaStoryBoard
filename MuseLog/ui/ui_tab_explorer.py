@@ -110,6 +110,11 @@ class Ui_TabExplorer(object):
 
         self.horizontalLayout.addWidget(self.btnSpine)
 
+        self.btnSizeModify = QPushButton(self.buttonWidget)
+        self.btnSizeModify.setObjectName(u"btnSizeModify")
+
+        self.horizontalLayout.addWidget(self.btnSizeModify)
+
         self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout.addItem(self.horizontalSpacer)
@@ -182,6 +187,7 @@ class Ui_TabExplorer(object):
         self.btnVideo.setText(QCoreApplication.translate("TabExplorer", u"\u89c6\u9891", None))
         self.btnSequenceFrames.setText(QCoreApplication.translate("TabExplorer", u"\u5e8f\u5217\u5e27", None))
         self.btnSpine.setText(QCoreApplication.translate("TabExplorer", u"spine", None))
+        self.btnSizeModify.setText(QCoreApplication.translate("TabExplorer", u"\u5c3a\u5bf8\u4fee\u6539", None))
         ___qtablewidgetitem = self.tableMeta.horizontalHeaderItem(0)
         ___qtablewidgetitem.setText(QCoreApplication.translate("TabExplorer", u"\u952e", None));
         ___qtablewidgetitem1 = self.tableMeta.horizontalHeaderItem(1)

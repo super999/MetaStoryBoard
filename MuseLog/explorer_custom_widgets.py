@@ -13,13 +13,14 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSizePolicy,
-    QWidget,
+    QWidget, QLabel
 )
 
 from MuseLog.explorer_signals import signal_manager
 
 CustomWidgetBuilder = Callable[[QWidget, str, Dict[str, Any]], Sequence[QWidget]]
 
+VIDEO_FOLDER_NAME = "视频"
 SEQUENCE_FOLDER_NAME = "序列帧"
 SPINE_FOLDER_NAME = "spine"
 SPINE_EXPORT_FOLDER_NAME = "spine-导出"
@@ -28,6 +29,7 @@ JSON42_FOLDER_NAME = "json42"
 DEFAULT_FRAME_RATE = 4
 DEFAULT_ANIMATION_TYPE = "待机"
 DEFAULT_SEQUENCE_TEMPLATE_TYPE = "空白"
+DEFAULT_VIDEO_TEMPLATE_TYPE = "空白动画"
 ALL_ANIMATION_TYPES = ["走路", "待机", "死亡", "攻击"]
 
 FRAME_RATE_PATTERN = re.compile(r"(\d+)帧")
@@ -51,8 +53,12 @@ def resolve_custom_widget_builder(folder: str, meta: Dict[str, Any]) -> Optional
 
     if parent_dir_name == SEQUENCE_FOLDER_NAME:
         return build_sequence_frames_widgets
+    if parent_dir_name == VIDEO_FOLDER_NAME:
+        return build_video_modify_widgets
     if folder_name_lower == SPINE_FOLDER_NAME:
         return build_spine_widgets
+    if folder_name_lower == VIDEO_FOLDER_NAME:
+        return build_video_widgets
     if folder_name_lower == SEQUENCE_FOLDER_NAME:
         return build_sequence_frames_widgets_parent
     if folder_name_lower == SPINE_EXPORT_FOLDER_NAME:
@@ -124,6 +130,22 @@ def _build_sequence_folder_name(frame_rate: int, animation_type: str) -> str:
     safe_animation_type = animation_type or DEFAULT_ANIMATION_TYPE
     return f"(秒抽{frame_rate}帧)-{safe_animation_type}"
 
+def _build_video_default_folder_name(folder: Path) -> str:
+    name_count = 1
+    folder_name = f'{DEFAULT_VIDEO_TEMPLATE_TYPE}_{name_count}'
+    while (folder / folder_name).exists():
+        name_count += 1
+        folder_name = f'{DEFAULT_VIDEO_TEMPLATE_TYPE}_{name_count}'
+    return folder_name
+
+def _build_video_folder_name_by_type(parent: Path, animation_type: str) -> str:
+    name_count = 1
+    safe_animation_type = animation_type or DEFAULT_ANIMATION_TYPE
+    folder_name = f'{safe_animation_type}_{name_count}'
+    while (parent / folder_name).exists():
+        name_count += 1
+        folder_name = f'{safe_animation_type}_{name_count}'
+    return folder_name
 
 def _emit_rename_request(folder_path: Path, new_name: str) -> None:
     new_path = folder_path.with_name(new_name)
@@ -203,6 +225,27 @@ def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Di
         btn_modify_animation_type,
         animation_type_combo,
         btn_delete_sequence,
+        _make_spacer(container),
+    ]
+
+def build_video_modify_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
+    folder_path = Path(full_folder)
+    animation_type = folder_path.name
+    btn_modify_video = QPushButton("修改视频占位符", container)
+    label_info = QLabel("动画名称", container)
+    animation_type_combo = QComboBox(container)
+    animation_type_combo.setMinimumWidth(120)
+    animation_type_combo.addItems(ALL_ANIMATION_TYPES)
+    if animation_type not in ALL_ANIMATION_TYPES:
+        animation_type_combo.addItem(animation_type)
+    def on_modify_video_clicked() -> None:
+        new_name = _build_video_folder_name_by_type(folder_path.parent, animation_type_combo.currentText().strip())
+        _emit_rename_request(folder_path, new_name)
+    btn_modify_video.clicked.connect(on_modify_video_clicked)
+    return [
+        btn_modify_video,
+        label_info,
+        animation_type_combo,
         _make_spacer(container),
     ]
 
@@ -369,6 +412,17 @@ def build_sequence_frames_widgets_parent(container: QWidget, full_folder: str, m
     return [btn_create_sequence, _make_spacer(container)]
 
 
+def build_video_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
+    video_path = Path(full_folder)
+    def create_video_placeholder() -> None:
+        target = video_path / _build_video_default_folder_name(video_path)
+        target.mkdir(exist_ok=True)
+        logging.info("Created video placeholder folder at %s", target)
+        QMessageBox.information(container, "创建成功", f"已成功创建 {target}")
+    btn_create_placeholder = QPushButton("创建视频占位符文件夹", container)
+    btn_create_placeholder.clicked.connect(create_video_placeholder)
+    return [btn_create_placeholder, _make_spacer(container)]
+
 __all__ = [
     "CustomWidgetBuilder",
     "resolve_custom_widget_builder",
@@ -377,4 +431,5 @@ __all__ = [
     "build_spine_export_widgets",
     "build_json42_widgets",
     "build_sequence_frames_widgets_parent",
+    "build_video_widgets",
 ]
