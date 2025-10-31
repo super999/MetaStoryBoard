@@ -3,324 +3,370 @@ import logging
 import os
 import re
 import shutil
-from typing import Any, Dict, Optional, Sequence, Callable, List
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Sequence
+
+from PySide6.QtGui import QIntValidator
+from PySide6.QtWidgets import (
+    QComboBox,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QWidget,
+)
+
 from MuseLog.explorer_signals import signal_manager
-from PySide6.QtWidgets import QWidget, QPushButton, QLineEdit, QComboBox, QSizePolicy, QMessageBox
 
 CustomWidgetBuilder = Callable[[QWidget, str, Dict[str, Any]], Sequence[QWidget]]
 
+SEQUENCE_FOLDER_NAME = "序列帧"
+SPINE_FOLDER_NAME = "spine"
+SPINE_EXPORT_FOLDER_NAME = "spine-导出"
+JSON42_FOLDER_NAME = "json42"
+
+DEFAULT_FRAME_RATE = 4
+DEFAULT_ANIMATION_TYPE = "待机"
+DEFAULT_SEQUENCE_TEMPLATE_TYPE = "空白"
+ALL_ANIMATION_TYPES = ["走路", "待机", "死亡", "攻击"]
+
+FRAME_RATE_PATTERN = re.compile(r"(\d+)帧")
+ANIMATION_TYPE_PATTERN = re.compile(r"-(\S+)$")
+
+CONFIG_DIR = Path.home() / ".muselog"
+JSON42_HISTORY_FILE = CONFIG_DIR / "json42_history.json"
+JSON42_HISTORY_LIMIT = 50
+JSON42_HISTORY_KEY = "monster_numbers"
+
+SPINE_TEMPLATE_SOURCE = Path(r"D:\素材资源\spine角色\僵尸-模板\僵尸模板\ske-template-01.spine")
+GAME_MONSTER_BASE_PATH = Path(r"D:\cocos_workspace\oops-game-kit\assets\resources-spine\art-spine\monsters")
+IMAGES_KEEP_FOLDER = "preds-BiRefNet_resize"
+
 
 def resolve_custom_widget_builder(folder: str, meta: Dict[str, Any]) -> Optional[CustomWidgetBuilder]:
-    parent_dir_name = os.path.basename(os.path.dirname(os.path.normpath(folder)))
-    folder_name = os.path.basename(os.path.normpath(folder))
-    if parent_dir_name == "序列帧":
+    """根据文件夹名称选择合适的自定义控件构建函数。"""
+    folder_path = Path(os.path.normpath(folder))
+    folder_name_lower = folder_path.name.lower()
+    parent_dir_name = folder_path.parent.name
+
+    if parent_dir_name == SEQUENCE_FOLDER_NAME:
         return build_sequence_frames_widgets
-    if folder_name.lower() == "spine":
+    if folder_name_lower == SPINE_FOLDER_NAME:
         return build_spine_widgets
-    if folder_name.lower() == "序列帧":
+    if folder_name_lower == SEQUENCE_FOLDER_NAME:
         return build_sequence_frames_widgets_parent
-    if folder_name.lower() == "spine-导出":
+    if folder_name_lower == SPINE_EXPORT_FOLDER_NAME:
         return build_spine_export_widgets
-    if folder_name.lower() == "json42":
+    if folder_name_lower == JSON42_FOLDER_NAME:
         return build_json42_widgets
     return None
 
 
-ALL_ANIMATION_TYPES = ["走路", "待机", "死亡", "攻击"]
-JSON42_HISTORY_LIMIT = 50
-JSON42_HISTORY_KEY = "monster_numbers"
-
-
-def _json42_history_path() -> str:
-    config_dir = os.path.join(os.path.expanduser("~"), ".muselog")
+def _ensure_config_dir() -> None:
     try:
-        os.makedirs(config_dir, exist_ok=True)
-    except Exception:
-        pass
-    return os.path.join(config_dir, "json42_history.json")
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        logging.debug("Failed to create config directory", exc_info=True)
 
 
 def _load_json42_history() -> List[str]:
-    path = _json42_history_path()
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, dict):
-            value = data.get(JSON42_HISTORY_KEY, [])
-        else:
-            value = data
-        if not isinstance(value, list):
-            return []
-        history: List[str] = []
-        for item in value:
-            text = str(item).strip()
-            if text and text not in history:
-                history.append(text)
-            if len(history) >= JSON42_HISTORY_LIMIT:
-                break
-        return history
-    except Exception:
+    _ensure_config_dir()
+    if not JSON42_HISTORY_FILE.exists():
         return []
+    try:
+        with JSON42_HISTORY_FILE.open("r", encoding="utf-8") as handler:
+            data = json.load(handler)
+    except (OSError, json.JSONDecodeError):
+        logging.debug("Failed to read json42 history", exc_info=True)
+        return []
+
+    if isinstance(data, dict):
+        raw_items = data.get(JSON42_HISTORY_KEY, [])
+    else:
+        raw_items = data
+
+    history: List[str] = []
+    for item in raw_items:
+        text = str(item).strip()
+        if text and text not in history:
+            history.append(text)
+        if len(history) >= JSON42_HISTORY_LIMIT:
+            break
+    return history
 
 
 def _save_json42_history(history: List[str]) -> None:
-    path = _json42_history_path()
+    _ensure_config_dir()
+    payload = {JSON42_HISTORY_KEY: history[:JSON42_HISTORY_LIMIT]}
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        payload = {JSON42_HISTORY_KEY: history[:JSON42_HISTORY_LIMIT]}
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=2)
-    except Exception:
+        with JSON42_HISTORY_FILE.open("w", encoding="utf-8") as handler:
+            json.dump(payload, handler, ensure_ascii=False, indent=2)
+    except OSError:
         logging.debug("Failed to persist json42 history", exc_info=True)
 
 
-def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
-    folder_name = os.path.basename(os.path.normpath(full_folder))
-    frame_rate = 4  # 默认帧率
-    animation_type = "待机"  # 默认动画类型
-    # folder 格式如： (秒抽8帧)-攻击
-    # 分析 folder 中 的 帧率
-    pattern_frame_rate = r"(\d+)帧"
-    frame_rate_match = re.search(pattern_frame_rate, folder_name)
-    if frame_rate_match:
-        frame_rate = int(frame_rate_match.group(1))
-    # 分析 folder 中 的 动画类型
-    pattern_animation_type = r"-(\S+)$"
-    animation_type_match = re.search(pattern_animation_type, folder_name)
-    if animation_type_match:
-        animation_type = animation_type_match.group(1)
-    # 尝试从 folder 名称中提取动画类型
+def _parse_sequence_folder_name(folder_name: str) -> tuple[int, str]:
+    frame_rate = DEFAULT_FRAME_RATE
+    animation_type = DEFAULT_ANIMATION_TYPE
 
-    btn_modify_frame_rate = QPushButton("修改帧率", container)
-    input_frame_rate = QLineEdit(container)
-    input_frame_rate.setMaximumWidth(60)
-    input_frame_rate.setText(str(frame_rate))
-    # 绑定 按钮 事件
-    def on_modify_frame_rate_clicked():
-        new_frame_rate_str = input_frame_rate.text().strip()
-        if not new_frame_rate_str.isdigit():
-            QMessageBox.warning(container, "输入错误", "请输入有效的帧率（正整数）")
-            return
-        new_frame_rate = int(new_frame_rate_str)
-        # 重命名文件夹
-        parent_dir = os.path.dirname(full_folder)
-        new_folder_name = re.sub(r"\(\S+?帧\)", f"(秒抽{new_frame_rate}帧)", folder_name)
-        new_full_folder = os.path.join(parent_dir, new_folder_name)
-        # 发送信号通知更新
-        signal_manager.rename_folder.emit(full_folder, new_full_folder)        
-    btn_modify_frame_rate.clicked.connect(on_modify_frame_rate_clicked)
-    
-    btn_modify_animation_type = QPushButton("修改动画类型", container)
-    combo_animation_type = QComboBox(container)
-    
-    combo_animation_type.addItems(ALL_ANIMATION_TYPES)
-    if animation_type in ALL_ANIMATION_TYPES:
-        pass
-    else:
-        combo_animation_type.addItem(animation_type)
-    combo_animation_type.setCurrentText(animation_type)
-    # combo_animation_type 默认太短， 设置最小宽度
-    combo_animation_type.setMinimumWidth(100)
-    # 绑定动画类型修改事件
-    def on_modify_animation_type_clicked():
-        new_animation_type = combo_animation_type.currentText()
-        # 重命名文件夹
-        parent_dir = os.path.dirname(full_folder)
-        new_folder_name = f"(秒抽{frame_rate}帧)-{new_animation_type}"
-        new_full_folder = os.path.join(parent_dir, new_folder_name)
-        # 发送信号通知更新
-        signal_manager.rename_folder.emit(full_folder, new_full_folder)
-    btn_modify_animation_type.clicked.connect(on_modify_animation_type_clicked)
-    
-    btn_delete_animation_sequence = QPushButton("删除选中的动画", container)
+    match = FRAME_RATE_PATTERN.search(folder_name)
+    if match:
+        frame_rate = int(match.group(1))
 
-    def on_delete_animation_sequence_clicked():
-        # 弹框确认删除
-        reply = QMessageBox.question(container, "确认删除", "您确定要删除选中的动画吗？", QMessageBox.Yes | QMessageBox.No)
-        if reply == QMessageBox.Yes:
-            # 发送删除信号，这里假设有一个全局的信号管理器 signal_manager
-            signal_manager.delete_selected_animation_sequence.emit()
-    btn_delete_animation_sequence.clicked.connect(on_delete_animation_sequence_clicked)
-    # 最后加一个 spacer
+    match = ANIMATION_TYPE_PATTERN.search(folder_name)
+    if match:
+        animation_type = match.group(1)
+
+    return frame_rate, animation_type
+
+
+def _build_sequence_folder_name(frame_rate: int, animation_type: str) -> str:
+    safe_animation_type = animation_type or DEFAULT_ANIMATION_TYPE
+    return f"(秒抽{frame_rate}帧)-{safe_animation_type}"
+
+
+def _emit_rename_request(folder_path: Path, new_name: str) -> None:
+    new_path = folder_path.with_name(new_name)
+    signal_manager.rename_folder.emit(str(folder_path), str(new_path))
+
+
+def _make_spacer(container: QWidget) -> QWidget:
     spacer = QWidget(container)
     spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    return spacer
+
+
+def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
+    folder_path = Path(full_folder)
+    frame_rate, animation_type = _parse_sequence_folder_name(folder_path.name)
+
+    frame_rate_value = frame_rate
+    animation_type_value = animation_type
+
+    btn_modify_frame_rate = QPushButton("修改帧率", container)
+    frame_rate_input = QLineEdit(container)
+    frame_rate_input.setValidator(QIntValidator(1, 240, frame_rate_input))
+    frame_rate_input.setMaximumWidth(60)
+    frame_rate_input.setText(str(frame_rate_value))
+
+    btn_modify_animation_type = QPushButton("修改动画类型", container)
+    animation_type_combo = QComboBox(container)
+    animation_type_combo.setMinimumWidth(120)
+    animation_type_combo.addItems(ALL_ANIMATION_TYPES)
+    if animation_type_value not in ALL_ANIMATION_TYPES:
+        animation_type_combo.addItem(animation_type_value)
+    animation_type_combo.setCurrentText(animation_type_value)
+
+    def on_modify_frame_rate_clicked() -> None:
+        nonlocal frame_rate_value
+        text = frame_rate_input.text().strip()
+        if not text:
+            QMessageBox.warning(container, "输入错误", "请输入有效的帧率")
+            return
+        new_rate = int(text)
+        if new_rate <= 0:
+            QMessageBox.warning(container, "输入错误", "帧率必须大于 0")
+            return
+        if new_rate == frame_rate_value:
+            return
+        frame_rate_value = new_rate
+        new_name = _build_sequence_folder_name(frame_rate_value, animation_type_combo.currentText().strip())
+        _emit_rename_request(folder_path, new_name)
+
+    def on_modify_animation_type_clicked() -> None:
+        nonlocal animation_type_value
+        new_type = animation_type_combo.currentText().strip()
+        if not new_type:
+            QMessageBox.warning(container, "输入错误", "动画类型不能为空")
+            return
+        if new_type == animation_type_value:
+            return
+        animation_type_value = new_type
+        new_name = _build_sequence_folder_name(frame_rate_value, animation_type_value)
+        _emit_rename_request(folder_path, new_name)
+
+    btn_modify_frame_rate.clicked.connect(on_modify_frame_rate_clicked)
+    btn_modify_animation_type.clicked.connect(on_modify_animation_type_clicked)
+
+    btn_delete_sequence = QPushButton("删除选中的动画", container)
+
+    def on_delete_sequence_clicked() -> None:
+        reply = QMessageBox.question(container, "确认删除", "确定要删除选中的动画吗？", QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            signal_manager.delete_selected_animation_sequence.emit()
+
+    btn_delete_sequence.clicked.connect(on_delete_sequence_clicked)
+
     return [
         btn_modify_frame_rate,
-        input_frame_rate,
+        frame_rate_input,
         btn_modify_animation_type,
-        combo_animation_type,
-        btn_delete_animation_sequence,
-        spacer,
+        animation_type_combo,
+        btn_delete_sequence,
+        _make_spacer(container),
     ]
 
 
 def build_spine_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
-    btn_create_spine_export = QPushButton("创建 spine-导出 文件夹", container)
-    def on_create_spine_export_clicked():
-        parent_dir = os.path.dirname(full_folder)
-        spine_export_folder = os.path.join(parent_dir, "spine-导出")
-        os.makedirs(spine_export_folder, exist_ok=True)
-        QMessageBox.information(container, "创建成功", f"已成功创建 {spine_export_folder}")
-    btn_create_spine_export.clicked.connect(on_create_spine_export_clicked)
-    #  拷贝 序列帧 到 images
-    btn_copy_sequence_frames = QPushButton("拷贝 序列帧 到 images", container)
-    def on_copy_sequence_frames_clicked():
-        logging.info(f"Copying sequence frames to images folder at: {full_folder}")
-        parent_dir = os.path.dirname(full_folder)
-        sequence_frames_source_folder = os.path.join(parent_dir, "序列帧")
-        images_folder = os.path.join(full_folder, "images")
-        # 先创建 images 文件夹
-        os.makedirs(images_folder, exist_ok=True)
-        shutil.copytree(sequence_frames_source_folder, images_folder, dirs_exist_ok=True)        
-        QMessageBox.information(container, "操作成功", f"已成功将序列帧拷贝到 {images_folder}")
-    btn_copy_sequence_frames.clicked.connect(on_copy_sequence_frames_clicked)
-    # 清理 images 里 多余的文件夹， 格式如： spine\images\XXX\preds-BiRefNet_resize, 若 XXX 下有多个文件夹， 且有preds-BiRefNet_resize， 则删除 同级下的 其他文件夹和文件
-    btn_clean_extra_folders = QPushButton("清理 images", container)
-    def on_clean_extra_folders_clicked():
-        images_dir = os.path.join(full_folder, "images")
-        if not os.path.exists(images_dir):
+    spine_path = Path(full_folder)
+
+    def create_spine_export_folder() -> None:
+        target = spine_path.parent / SPINE_EXPORT_FOLDER_NAME
+        target.mkdir(exist_ok=True)
+        QMessageBox.information(container, "创建成功", f"已成功创建 {target}")
+
+    def copy_sequence_frames_to_images() -> None:
+        source = spine_path.parent / SEQUENCE_FOLDER_NAME
+        if not source.exists():
+            QMessageBox.warning(container, "操作失败", f"{source} 不存在")
+            return
+        images_folder = spine_path / "images"
+        images_folder.mkdir(exist_ok=True)
+        shutil.copytree(source, images_folder, dirs_exist_ok=True)
+        QMessageBox.information(container, "拷贝成功", f"已成功拷贝序列帧到 {images_folder}")
+
+    def clean_extra_image_folders() -> None:
+        images_dir = spine_path / "images"
+        if not images_dir.exists():
             QMessageBox.warning(container, "操作失败", f"{images_dir} 不存在")
             return
-        for item in os.listdir(images_dir):
-            item_path = os.path.join(images_dir, item)
-            if os.path.isdir(item_path):
-                subfolders = os.listdir(item_path)
-                preds_folder = 'preds-BiRefNet_resize'
-                if preds_folder in subfolders:
-                    for f in subfolders:
-                        if f != preds_folder:
-                            folder_to_remove = os.path.join(item_path, f)
-                            if os.path.isfile(folder_to_remove):
-                                os.remove(folder_to_remove)
-                            elif os.path.isdir(folder_to_remove):
-                                shutil.rmtree(folder_to_remove)
-                            logging.info(f"Removed extra folder: {folder_to_remove}")
-        QMessageBox.information(container, "操作成功", "已清理 images 多余文件夹")
-    btn_clean_extra_folders.clicked.connect(on_clean_extra_folders_clicked)
-    # 创建 spine 模板， 从 D:\美术资源\spine角色\地球危机-模板\僵尸模板\ske-template-01.spine 拷贝到 spine 文件夹内，并重命名为 XXX.spine ， XXX 为 当前 spine 文件夹的上级文件夹名称
-    btn_create_spine_template = QPushButton("创建 spine 模板", container)
-    def on_create_spine_template_clicked():
-        template_source_path = r"D:\\美术资源\\spine角色\\地球危机-模板\\僵尸模板\\ske-template-01.spine"
-        if not os.path.exists(template_source_path):
-            QMessageBox.warning(container, "操作失败", f"模板文件不存在: {template_source_path}")
+        for sub_dir in images_dir.iterdir():
+            if not sub_dir.is_dir():
+                continue
+            keep_dir = sub_dir / IMAGES_KEEP_FOLDER
+            if not keep_dir.exists():
+                continue
+            for item in list(sub_dir.iterdir()):
+                if item == keep_dir:
+                    continue
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+                logging.info("Removed extra path: %s", item)
+        QMessageBox.information(container, "清理成功", "已清理 images 目录多余内容")
+
+    def create_spine_template() -> None:
+        if not SPINE_TEMPLATE_SOURCE.exists():
+            QMessageBox.warning(container, "操作失败", f"模板文件不存在: {SPINE_TEMPLATE_SOURCE}")
             return
-        parent_dir_name = os.path.basename(os.path.dirname(full_folder))
-        template_dest_path = os.path.join(full_folder, f"{parent_dir_name}.spine")
-        shutil.copyfile(template_source_path, template_dest_path)
-        QMessageBox.information(container, "创建成功", f"已成功创建模板文件: {template_dest_path}")
-    btn_create_spine_template.clicked.connect(on_create_spine_template_clicked)    
-    spacer = QWidget(container)
-    spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-    return [btn_create_spine_export, btn_copy_sequence_frames, btn_clean_extra_folders, btn_create_spine_template, spacer]
+        parent_name = spine_path.parent.name or "spine"
+        target = spine_path / f"{parent_name}.spine"
+        shutil.copyfile(SPINE_TEMPLATE_SOURCE, target)
+        QMessageBox.information(container, "创建成功", f"已成功创建模板文件: {target}")
+
+    btn_create_export = QPushButton("创建 spine-导出 文件夹", container)
+    btn_create_export.clicked.connect(create_spine_export_folder)
+
+    btn_copy_sequence = QPushButton("拷贝 序列帧 到 images", container)
+    btn_copy_sequence.clicked.connect(copy_sequence_frames_to_images)
+
+    btn_clean_images = QPushButton("清理 images", container)
+    btn_clean_images.clicked.connect(clean_extra_image_folders)
+
+    btn_create_template = QPushButton("创建 spine 模板", container)
+    btn_create_template.clicked.connect(create_spine_template)
+
+    return [
+        btn_create_export,
+        btn_copy_sequence,
+        btn_clean_images,
+        btn_create_template,
+        _make_spacer(container),
+    ]
+
 
 def build_spine_export_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
-    # 创建 json42 按钮
-    btn_create_spine_export = QPushButton("创建 json42 文件夹", container)
-    def on_create_spine_export_clicked():
-        json42_folder = os.path.join(full_folder, "json42")
-        os.makedirs(json42_folder, exist_ok=True)
-        QMessageBox.information(container, "创建成功", f"已成功创建 {json42_folder}")
-    btn_create_spine_export.clicked.connect(on_create_spine_export_clicked)
-    spacer = QWidget(container)
-    spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-    return [btn_create_spine_export, spacer]
+    spine_export_path = Path(full_folder)
+
+    def create_json42_folder() -> None:
+        target = spine_export_path / JSON42_FOLDER_NAME
+        target.mkdir(exist_ok=True)
+        QMessageBox.information(container, "创建成功", f"已成功创建 {target}")
+
+    btn_create_json42 = QPushButton("创建 json42 文件夹", container)
+    btn_create_json42.clicked.connect(create_json42_folder)
+
+    return [btn_create_json42, _make_spacer(container)]
+
 
 def build_json42_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
-    # 拷贝 json42 文件夹到游戏项目的怪物文件夹下 如 D:\cocos_workspace\oops-game-kit\assets\resources-spine\art-spine\monsters\jiangshi_08
-    btn_copy_json42_file = QPushButton("拷贝 json42 文件夹到游戏项目怪物文件夹", container)
-    input_game_monster_number = QComboBox(container)  # 怪物编号输入框，支持历史记录
-    input_game_monster_number.setEditable(True)
-    input_game_monster_number.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-    input_game_monster_number.setMaxVisibleItems(JSON42_HISTORY_LIMIT)
-    input_game_monster_number.setMaximumWidth(150)
-    input_game_monster_number.setMinimumWidth(100)
+    source_path = Path(full_folder)
+
+    btn_copy_json42 = QPushButton("拷贝 json42 文件夹到游戏项目怪物文件夹", container)
+    monster_combo = QComboBox(container)
+    monster_combo.setEditable(True)
+    monster_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+    monster_combo.setMaxVisibleItems(JSON42_HISTORY_LIMIT)
+    monster_combo.setMaximumWidth(150)
+    monster_combo.setMinimumWidth(100)
+
     history_values = _load_json42_history()
 
-    def refresh_history_combo(current_text: str) -> None:
-        input_game_monster_number.blockSignals(True)
-        input_game_monster_number.clear()
+    def refresh_monster_combo(current_text: str) -> None:
+        monster_combo.blockSignals(True)
+        monster_combo.clear()
         if history_values:
-            input_game_monster_number.addItems(history_values)
-        input_game_monster_number.setCurrentText(current_text)
-        input_game_monster_number.blockSignals(False)
+            monster_combo.addItems(history_values)
+        monster_combo.setCurrentText(current_text)
+        monster_combo.blockSignals(False)
 
-    default_monster_number = str(meta.get("monster_number", "") or "").strip()
-    if not default_monster_number and history_values:
-        default_monster_number = history_values[0]
-    refresh_history_combo(default_monster_number)
+    default_monster = str(meta.get("monster_number", "") or "").strip()
+    if not default_monster and history_values:
+        default_monster = history_values[0]
+    refresh_monster_combo(default_monster)
 
-    line_edit = input_game_monster_number.lineEdit()
+    line_edit = monster_combo.lineEdit()
     if line_edit is not None:
         line_edit.setPlaceholderText("怪物编号")
         line_edit.setClearButtonEnabled(True)
 
-    base_game_monster_path = r"D:\cocos_workspace\oops-game-kit\assets\resources-spine\art-spine\monsters"
-
-    def on_copy_json42_file_clicked():
+    def copy_json42_to_game() -> None:
         nonlocal history_values
-        game_monster_number = input_game_monster_number.currentText().strip()
-        if not game_monster_number:
+        monster_number = monster_combo.currentText().strip()
+        if not monster_number:
             QMessageBox.warning(container, "操作失败", "请填写怪物编号")
             return
-        source_folder = full_folder
-        dest_folder = os.path.join(base_game_monster_path, f"jiangshi_{game_monster_number}")
-        shutil.copytree(source_folder, dest_folder, dirs_exist_ok=True)
-        # 修改 xx.json 与 .atlas 同名的文件名
-        all_files = os.listdir(dest_folder)
-        # 查找 .atlas 文件
-        atlas_file = None
-        for f in all_files:
-            if f.endswith('.atlas'):
-                atlas_file = f
-                break
-        # 修改同名的 .json 文件
-        json_file = None
-        for f in all_files:
-            if f.endswith('.json'):
-                json_file = f
-                break
+        destination = GAME_MONSTER_BASE_PATH / f"jiangshi_{monster_number}"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source_path, destination, dirs_exist_ok=True)
+
+        atlas_file = next((p for p in destination.iterdir() if p.suffix == ".atlas"), None)
+        json_file = next((p for p in destination.iterdir() if p.suffix == ".json"), None)
         if atlas_file and json_file:
-            new_json_file_name = atlas_file.replace('.atlas', '.json')
-            old_json_file_path = os.path.join(dest_folder, json_file)
-            new_json_file_path = os.path.join(dest_folder, new_json_file_name)
-            # 如果 new_json_file_path 已存在，先删除
-            if os.path.exists(new_json_file_path):
-                os.remove(new_json_file_path)
-            os.rename(old_json_file_path, new_json_file_path)
-            logging.info(f"Renamed {old_json_file_path} to {new_json_file_path}")
-        QMessageBox.information(container, "拷贝成功", f"已成功拷贝 {source_folder} 到 {dest_folder}")
-        # 弹出资源管理器打开目标文件夹
-        os.startfile(dest_folder)
-        history_values = [item for item in history_values if item != game_monster_number]
-        history_values.insert(0, game_monster_number)
+            target_json = atlas_file.with_suffix(".json")
+            if target_json.exists():
+                target_json.unlink()
+            json_file.rename(target_json)
+            logging.info("Renamed json file to match atlas: %s", target_json)
+
+        QMessageBox.information(container, "拷贝成功", f"已成功拷贝 {source_path} 到 {destination}")
+        os.startfile(str(destination))
+
+        history_values = [item for item in history_values if item != monster_number]
+        history_values.insert(0, monster_number)
         history_values = history_values[:JSON42_HISTORY_LIMIT]
         _save_json42_history(history_values)
-        refresh_history_combo(game_monster_number)
+        refresh_monster_combo(monster_number)
 
-    btn_copy_json42_file.clicked.connect(on_copy_json42_file_clicked)
-    spacer = QWidget(container)
-    spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-    return [btn_copy_json42_file, input_game_monster_number, spacer]
+    btn_copy_json42.clicked.connect(copy_json42_to_game)
+
+    return [btn_copy_json42, monster_combo, _make_spacer(container)]
 
 
 def build_sequence_frames_widgets_parent(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
-    btn_create_animation_sequence = QPushButton("创建 动画序列帧", container)
+    parent_path = Path(full_folder)
 
-    def on_create_animation_sequence_clicked():
-        # (秒抽XX帧)-YY
-        frame_rate = 4  # 默认帧率
-        animation_type = "空白"  # 默认动画类型
-        animation_sequence_folder_name = f"(秒抽{frame_rate}帧)-{animation_type}"
-        animation_sequence_folder = os.path.join(full_folder, animation_sequence_folder_name)
-        logging.info(f"Creating animation sequence folder at: {animation_sequence_folder}")
-        os.makedirs(animation_sequence_folder, exist_ok=True)
-        QMessageBox.information(container, "创建成功", f"已成功创建 {animation_sequence_folder}")
+    def create_sequence_folder() -> None:
+        target = parent_path / _build_sequence_folder_name(DEFAULT_FRAME_RATE, DEFAULT_SEQUENCE_TEMPLATE_TYPE)
+        target.mkdir(exist_ok=True)
+        logging.info("Created animation sequence folder at %s", target)
+        QMessageBox.information(container, "创建成功", f"已成功创建 {target}")
 
-    btn_create_animation_sequence.clicked.connect(on_create_animation_sequence_clicked)
+    btn_create_sequence = QPushButton("创建 动画序列帧", container)
+    btn_create_sequence.clicked.connect(create_sequence_folder)
 
-    spacer = QWidget(container)
-    spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-    return [btn_create_animation_sequence, spacer]
+    return [btn_create_sequence, _make_spacer(container)]
 
 
 __all__ = [
@@ -328,5 +374,7 @@ __all__ = [
     "resolve_custom_widget_builder",
     "build_sequence_frames_widgets",
     "build_spine_widgets",
-
+    "build_spine_export_widgets",
+    "build_json42_widgets",
+    "build_sequence_frames_widgets_parent",
 ]
