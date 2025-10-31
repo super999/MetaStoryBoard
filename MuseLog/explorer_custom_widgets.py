@@ -127,7 +127,7 @@ def build_spine_widgets(container: QWidget, full_folder: str, meta: Dict[str, An
         QMessageBox.information(container, "操作成功", f"已成功将序列帧拷贝到 {images_folder}")
     btn_copy_sequence_frames.clicked.connect(on_copy_sequence_frames_clicked)
     # 清理 images 里 多余的文件夹， 格式如： spine\images\XXX\preds-BiRefNet_resize, 若 XXX 下有多个文件夹， 且有preds-BiRefNet_resize， 则删除 同级下的 其他文件夹和文件
-    btn_clean_extra_folders = QPushButton("清理 images 多余文件夹", container)
+    btn_clean_extra_folders = QPushButton("清理 images", container)
     def on_clean_extra_folders_clicked():
         images_dir = os.path.join(full_folder, "images")
         if not os.path.exists(images_dir):
@@ -149,9 +149,21 @@ def build_spine_widgets(container: QWidget, full_folder: str, meta: Dict[str, An
                             logging.info(f"Removed extra folder: {folder_to_remove}")
         QMessageBox.information(container, "操作成功", "已清理 images 多余文件夹")
     btn_clean_extra_folders.clicked.connect(on_clean_extra_folders_clicked)
+    # 创建 spine 模板， 从 D:\美术资源\spine角色\地球危机-模板\僵尸模板\ske-template-01.spine 拷贝到 spine 文件夹内，并重命名为 XXX.spine ， XXX 为 当前 spine 文件夹的上级文件夹名称
+    btn_create_spine_template = QPushButton("创建 spine 模板", container)
+    def on_create_spine_template_clicked():
+        template_source_path = r"D:\美术资源\spine角色\地球危机-模板\僵尸模板\ske-template-01.spine"
+        if not os.path.exists(template_source_path):
+            QMessageBox.warning(container, "操作失败", f"模板文件不存在: {template_source_path}")
+            return
+        parent_dir_name = os.path.basename(os.path.dirname(full_folder))
+        template_dest_path = os.path.join(full_folder, f"{parent_dir_name}.spine")
+        shutil.copyfile(template_source_path, template_dest_path)
+        QMessageBox.information(container, "创建成功", f"已成功创建模板文件: {template_dest_path}")
+    btn_create_spine_template.clicked.connect(on_create_spine_template_clicked)    
     spacer = QWidget(container)
     spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-    return [btn_create_spine_export, btn_copy_sequence_frames, btn_clean_extra_folders, spacer]
+    return [btn_create_spine_export, btn_copy_sequence_frames, btn_clean_extra_folders, btn_create_spine_template, spacer]
 
 def build_spine_export_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
     spacer = QWidget(container)

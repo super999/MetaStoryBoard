@@ -1,7 +1,7 @@
 import logging
 import os
 import json
-from typing import Dict, Any, List, Optional, Sequence
+from typing import Dict, Any, List, Optional, Sequence, Set
 
 from PySide6.QtCore import QDir, QModelIndex, Qt
 from PySide6.QtWidgets import (
@@ -66,6 +66,7 @@ class TabExplorerWidget(QWidget):
         self.ui.btnBack.clicked.connect(self.on_back_clicked)
         self.ui.btnGoUp.clicked.connect(self.on_go_up_clicked)
         self.ui.btnRefresh.clicked.connect(self.on_refresh_clicked)
+        self.ui.tableMeta.cellClicked.connect(self.on_table_cell_activated)
         
         # 绑定 树 右键事件，弹出菜单
         self.ui.treeView.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -82,6 +83,8 @@ class TabExplorerWidget(QWidget):
         self._suppress_history: bool = False
         self._current_detail_widget: Optional[QWidget] = None
         self._video_detail_widget: Optional[VideoDetailWidget] = None
+        self._table_row_meta: List[MetaStruct] = []
+        self._auto_trigger_ops: Set[str] = {"视频元数据"}
 
         # Detail 区域布局
         detail_layout = self.ui.DetailWidget.layout()
@@ -269,6 +272,7 @@ class TabExplorerWidget(QWidget):
 
     def populate_table(self, meta: Dict[str, MetaStruct]):
         self.ui.tableMeta.clearContents()
+        self._table_row_meta = []
         rows = []
         # 友好排序
         key_order = [
@@ -287,6 +291,7 @@ class TabExplorerWidget(QWidget):
         k: str
         v: MetaStruct
         for i, (k, v) in enumerate(rows):
+            self._table_row_meta.append(v)
             v_str = v.name
             v_op = v.op_type
             self.ui.tableMeta.setItem(i, 0, QTableWidgetItem(str(k)))
@@ -346,6 +351,22 @@ class TabExplorerWidget(QWidget):
             meta["参考图"]=MetaStruct("参考图", ", ".join(os.path.basename(r) for r in refs[:20]) + (" ..." if len(refs) > 20 else ""))
 
         return meta
+
+    def on_table_cell_activated(self, row: int, column: int) -> None:
+        if column != 1:
+            return
+        if row < 0 or row >= len(self._table_row_meta):
+            return
+
+        entry = self._table_row_meta[row]
+        if not entry or not entry.op_type:
+            return
+
+        if entry.op_type not in self._auto_trigger_ops:
+            return
+
+        logging.debug("自动触发表格操作: row=%s, op_type=%s", row, entry.op_type)
+        self.on_metadata_operation_clicked(entry.op_type, entry.op_data)
 
     # ---------------------- 导航辅助 ----------------------
     def _set_current_path(self, path: str, add_history: bool=True) -> None:
