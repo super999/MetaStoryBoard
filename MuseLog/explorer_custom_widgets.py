@@ -1,8 +1,9 @@
+import json
 import logging
 import os
 import re
 import shutil
-from typing import Any, Dict, Optional, Sequence, Callable
+from typing import Any, Dict, Optional, Sequence, Callable, List
 from MuseLog.explorer_signals import signal_manager
 from PySide6.QtWidgets import QWidget, QPushButton, QLineEdit, QComboBox, QSizePolicy, QMessageBox
 
@@ -26,6 +27,51 @@ def resolve_custom_widget_builder(folder: str, meta: Dict[str, Any]) -> Optional
 
 
 ALL_ANIMATION_TYPES = ["走路", "待机", "死亡", "攻击"]
+JSON42_HISTORY_LIMIT = 50
+JSON42_HISTORY_KEY = "monster_numbers"
+
+
+def _json42_history_path() -> str:
+    config_dir = os.path.join(os.path.expanduser("~"), ".muselog")
+    try:
+        os.makedirs(config_dir, exist_ok=True)
+    except Exception:
+        pass
+    return os.path.join(config_dir, "json42_history.json")
+
+
+def _load_json42_history() -> List[str]:
+    path = _json42_history_path()
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            value = data.get(JSON42_HISTORY_KEY, [])
+        else:
+            value = data
+        if not isinstance(value, list):
+            return []
+        history: List[str] = []
+        for item in value:
+            text = str(item).strip()
+            if text and text not in history:
+                history.append(text)
+            if len(history) >= JSON42_HISTORY_LIMIT:
+                break
+        return history
+    except Exception:
+        return []
+
+
+def _save_json42_history(history: List[str]) -> None:
+    path = _json42_history_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        payload = {JSON42_HISTORY_KEY: history[:JSON42_HISTORY_LIMIT]}
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+    except Exception:
+        logging.debug("Failed to persist json42 history", exc_info=True)
 
 
 def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
@@ -180,21 +226,46 @@ def build_spine_export_widgets(container: QWidget, full_folder: str, meta: Dict[
     return [btn_create_spine_export, spacer]
 
 def build_json42_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
-    # 拷贝 json42 文件夹 到 游戏项目的怪物文件夹下 如 D:\cocos_workspace\oops-game-kit\assets\resources-spine\art-spine\monsters\jiangshi_08
-    btn_copy_json42_file = QPushButton("拷贝 json42 文件夹 到 游戏项目怪物文件夹", container)
-    input_game_monster_number = QLineEdit(container) # 怪物编号输入框
-    input_game_monster_number.setMaximumWidth(100)
-    base_game_monster_path = r"D:\\cocos_workspace\\oops-game-kit\\assets\\resources-spine\\art-spine\\monsters"
-    monster_folder_name = f'jiangshi_{meta.get("monster_number", "00")}'
+    # 拷贝 json42 文件夹到游戏项目的怪物文件夹下 如 D:\cocos_workspace\oops-game-kit\assets\resources-spine\art-spine\monsters\jiangshi_08
+    btn_copy_json42_file = QPushButton("拷贝 json42 文件夹到游戏项目怪物文件夹", container)
+    input_game_monster_number = QComboBox(container)  # 怪物编号输入框，支持历史记录
+    input_game_monster_number.setEditable(True)
+    input_game_monster_number.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+    input_game_monster_number.setMaxVisibleItems(JSON42_HISTORY_LIMIT)
+    input_game_monster_number.setMaximumWidth(150)
+    input_game_monster_number.setMinimumWidth(100)
+    history_values = _load_json42_history()
+
+    def refresh_history_combo(current_text: str) -> None:
+        input_game_monster_number.blockSignals(True)
+        input_game_monster_number.clear()
+        if history_values:
+            input_game_monster_number.addItems(history_values)
+        input_game_monster_number.setCurrentText(current_text)
+        input_game_monster_number.blockSignals(False)
+
+    default_monster_number = str(meta.get("monster_number", "") or "").strip()
+    if not default_monster_number and history_values:
+        default_monster_number = history_values[0]
+    refresh_history_combo(default_monster_number)
+
+    line_edit = input_game_monster_number.lineEdit()
+    if line_edit is not None:
+        line_edit.setPlaceholderText("怪物编号")
+        line_edit.setClearButtonEnabled(True)
+
+    base_game_monster_path = r"D:\cocos_workspace\oops-game-kit\assets\resources-spine\art-spine\monsters"
+
     def on_copy_json42_file_clicked():
-        game_monster_number = input_game_monster_number.text().strip()
+        nonlocal history_values
+        game_monster_number = input_game_monster_number.currentText().strip()
         if not game_monster_number:
             QMessageBox.warning(container, "操作失败", "请填写怪物编号")
             return
         source_folder = full_folder
         dest_folder = os.path.join(base_game_monster_path, f"jiangshi_{game_monster_number}")
         shutil.copytree(source_folder, dest_folder, dirs_exist_ok=True)
-        # 修改 xx.json 为 .atlas 同名的文件名
+        # 修改 xx.json 与 .atlas 同名的文件名
         all_files = os.listdir(dest_folder)
         # 查找 .atlas 文件
         atlas_file = None
@@ -212,15 +283,25 @@ def build_json42_widgets(container: QWidget, full_folder: str, meta: Dict[str, A
             new_json_file_name = atlas_file.replace('.atlas', '.json')
             old_json_file_path = os.path.join(dest_folder, json_file)
             new_json_file_path = os.path.join(dest_folder, new_json_file_name)
+            # 如果 new_json_file_path 已存在，先删除
+            if os.path.exists(new_json_file_path):
+                os.remove(new_json_file_path)
             os.rename(old_json_file_path, new_json_file_path)
             logging.info(f"Renamed {old_json_file_path} to {new_json_file_path}")
         QMessageBox.information(container, "拷贝成功", f"已成功拷贝 {source_folder} 到 {dest_folder}")
         # 弹出资源管理器打开目标文件夹
         os.startfile(dest_folder)
+        history_values = [item for item in history_values if item != game_monster_number]
+        history_values.insert(0, game_monster_number)
+        history_values = history_values[:JSON42_HISTORY_LIMIT]
+        _save_json42_history(history_values)
+        refresh_history_combo(game_monster_number)
+
     btn_copy_json42_file.clicked.connect(on_copy_json42_file_clicked)
     spacer = QWidget(container)
     spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
     return [btn_copy_json42_file, input_game_monster_number, spacer]
+
 
 def build_sequence_frames_widgets_parent(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
     btn_create_animation_sequence = QPushButton("创建 动画序列帧", container)
