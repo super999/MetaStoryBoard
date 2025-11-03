@@ -216,9 +216,15 @@ class TabExplorerWidget(QWidget):
 
         menu = QMenu(self.ui.treeView)
         delete_action = menu.addAction("删除文件夹")
+        favorite_action = menu.addAction("收藏此文件夹")
         action = menu.exec(self.ui.treeView.viewport().mapToGlobal(point))
         if action == delete_action:
             self._confirm_delete_folder(folder_path)
+        elif action == favorite_action:
+            self._add_to_favorites(folder_path)
+            
+    def _add_to_favorites(self, folder_path: str) -> None:
+        # 
 
     def _confirm_delete_folder(self, folder_path: str) -> None:
         normalized_path = os.path.normpath(folder_path)

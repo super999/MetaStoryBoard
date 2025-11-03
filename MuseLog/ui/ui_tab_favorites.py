@@ -25,7 +25,7 @@ class Ui_TabFavorites(object):
         if not TabFavorites.objectName():
             TabFavorites.setObjectName(u"TabFavorites")
         TabFavorites.resize(1010, 582)
-        TabFavorites.setStyleSheet(u" QWidget {\n"
+        TabFavorites.setStyleSheet(u" QWidget #wid {\n"
 "       border: 1px solid #d3d3d3;\n"
 " }")
         self.verticalLayout = QVBoxLayout(TabFavorites)
@@ -51,6 +51,10 @@ class Ui_TabFavorites(object):
         self.verticalLayout_4.setContentsMargins(0, 0, 0, 0)
         self.label = QLabel(self.leftPanel)
         self.label.setObjectName(u"label")
+        self.label.setMinimumSize(QSize(0, 30))
+        font = QFont()
+        font.setPointSize(12)
+        self.label.setFont(font)
 
         self.verticalLayout_4.addWidget(self.label)
 
@@ -75,12 +79,14 @@ class Ui_TabFavorites(object):
         self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.widget = QWidget(self.rightPanel)
         self.widget.setObjectName(u"widget")
+        self.widget.setMinimumSize(QSize(0, 30))
         self.horizontalLayout = QHBoxLayout(self.widget)
         self.horizontalLayout.setSpacing(0)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.label_3 = QLabel(self.widget)
         self.label_3.setObjectName(u"label_3")
+        self.label_3.setFont(font)
 
         self.horizontalLayout.addWidget(self.label_3)
 

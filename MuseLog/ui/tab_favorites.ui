@@ -14,7 +14,7 @@
    <string>收藏夹</string>
   </property>
   <property name="styleSheet">
-   <string notr="true"> QWidget {
+   <string notr="true"> QWidget #wid {
        border: 1px solid #d3d3d3;
  }</string>
   </property>
@@ -88,6 +88,17 @@
           </property>
           <item>
            <widget class="QLabel" name="label">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>30</height>
+             </size>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>12</pointsize>
+             </font>
+            </property>
             <property name="text">
              <string>收藏夹</string>
             </property>
@@ -132,6 +143,12 @@
           </property>
           <item>
            <widget class="QWidget" name="widget" native="true">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>30</height>
+             </size>
+            </property>
             <layout class="QHBoxLayout" name="horizontalLayout">
              <property name="spacing">
               <number>0</number>
@@ -150,6 +167,11 @@
              </property>
              <item>
               <widget class="QLabel" name="label_3">
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
                <property name="text">
                 <string>项目</string>
                </property>
