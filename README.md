@@ -84,6 +84,20 @@ python MuseLog\main.py
 pyinstaller --onefile --windowed launch.py --console  --name="灵图绘卷"
 ```
 
+7) 启动 Qt6 Designer（可选）
+如果需要修改 UI，可以使用 Qt6 Designer 进行可视化设计。启动命令：
+```
+qt6-tools designer
+```
+
+8) 编译 ui 文件（可选）
+修改完 UI 设计后，需要重新编译 `.ui` 文件为 Python 代码，运行：
+```bash
+cd MuseLog/ui
+compile_ui.bat  
+```
+
+
 ## 常见问题（FAQ）
 
 ### 1) 运行时报 `ModuleNotFoundError: No module named 'image_resize_tool'`？
