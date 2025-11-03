@@ -8,6 +8,7 @@ from PySide6.QtCore import QModelIndex, QPoint, Qt
 from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QFileDialog,
+    QInputDialog,
     QListView,
     QMenu,
     QMessageBox,
@@ -15,8 +16,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from MuseLog.favorites_store import FavoriteNode, FavoritesStore
 from MuseLog.ui.ui_tab_favorites import Ui_TabFavorites
-from MuseLog.favorites_store import FavoritesStore, FavoriteFolder
 
 
 class TabFavoritesWidget(QWidget):
@@ -44,13 +45,15 @@ class TabFavoritesWidget(QWidget):
         self.ui.listView.setModel(self._list_model)
 
         self._store = FavoritesStore()
-        self._favorites: List[FavoriteFolder] = []
-        self._current_folder: Optional[str] = None
-        self._current_entries: List[Dict[str, str]] = []
+        self._root: FavoriteNode = self._store.get_root()
+        self._node_index: Dict[int, FavoriteNode] = {}
+        self._item_index: Dict[int, QStandardItem] = {}
+        self._current_node_id: int = self._root.node_id
+        self._current_children: List[FavoriteNode] = []
         self._filter_text: str = ""
 
-        self._load_favorites()
-        self._refresh_tree(select_first=True)
+        self._reload_from_store()
+        self._refresh_tree()
 
         self.ui.btnAddFolder.clicked.connect(self.on_add_folder)
         self.ui.btnRefresh.clicked.connect(self.on_refresh)
@@ -61,60 +64,87 @@ class TabFavoritesWidget(QWidget):
         self.ui.listView.customContextMenuRequested.connect(self.on_list_context_menu)
         self.ui.lineFilter.textChanged.connect(self.on_filter_text_changed)
 
-    def _load_favorites(self) -> None:
+    def _reload_from_store(self) -> None:
         try:
-            self._favorites = self._store.load()
+            self._root = self._store.get_root()
         except Exception as exc:
             logging.exception("读取收藏夹配置失败: %s", self._store.file_path)
             QMessageBox.warning(self, "加载失败", f"读取收藏夹配置时发生错误：\n{exc}")
-            self._favorites = []
+            self._root = FavoriteNode(0, "收藏夹", "", 0.0)
+        self._rebuild_node_index()
+        if self._current_node_id not in self._node_index:
+            self._current_node_id = self._root.node_id
+
+    def _rebuild_node_index(self) -> None:
+        self._node_index = {}
+
+        def walk(node: FavoriteNode) -> None:
+            self._node_index[node.node_id] = node
+            for child in node.children:
+                walk(child)
+
+        walk(self._root)
 
     # ------------------------------------------------------------------
     # UI 刷新
     # ------------------------------------------------------------------
-    def _refresh_tree(self, *, select_first: bool = False) -> None:
-        selected_path = self._current_folder
+    def _refresh_tree(self) -> None:
+        target_node_id = self._current_node_id if self._current_node_id in self._node_index else self._root.node_id
         self._tree_model.clear()
         self._tree_model.setHorizontalHeaderLabels(["收藏夹"])
+        self._item_index = {}
 
-        matched_index: Optional[QModelIndex] = None
-        for entry in self._favorites:
-            item = QStandardItem(entry.alias)
-            item.setEditable(False)
-            item.setData(entry.path, Qt.UserRole)
-            item.setToolTip(entry.path)
-            self._tree_model.appendRow(item)
-            if selected_path and self._is_same_path(entry.path, selected_path):
-                matched_index = item.index()
+        self._build_tree_items(self._root, None)
+        self.ui.treeView.expandAll()
 
-        if matched_index is not None:
-            self.ui.treeView.setCurrentIndex(matched_index)
-        elif select_first and self._tree_model.rowCount() > 0:
-            index = self._tree_model.index(0, 0)
-            self.ui.treeView.setCurrentIndex(index)
+        target_item = self._item_index.get(target_node_id) or self._item_index.get(self._root.node_id)
+        if target_item is not None:
+            self.ui.treeView.setCurrentIndex(target_item.index())
+            node_data = target_item.data(Qt.UserRole)
+            try:
+                self._current_node_id = int(node_data)
+            except (TypeError, ValueError):
+                self._current_node_id = self._root.node_id
         else:
-            self._current_folder = None
-            self._current_entries.clear()
-            self._apply_filter_to_list()
+            self._current_node_id = self._root.node_id
+            self._display_children(self._root.node_id)
+            return
+
+        self._display_children(self._current_node_id)
+
+    def _build_tree_items(self, node: FavoriteNode, parent_item: Optional[QStandardItem]) -> None:
+        item = QStandardItem(node.name or "(未命名)")
+        item.setEditable(False)
+        item.setToolTip(node.path or node.name or "")
+        item.setData(node.node_id, Qt.UserRole)
+        self._item_index[node.node_id] = item
+
+        if parent_item is None:
+            self._tree_model.appendRow(item)
+        else:
+            parent_item.appendRow(item)
+
+        for child in node.children:
+            self._build_tree_items(child, item)
 
     def _apply_filter_to_list(self) -> None:
         self._list_model.clear()
-        if not self._current_entries:
-            return
 
         text = self._filter_text.lower()
         style = self.style()
         rows_added = 0
 
-        for entry in self._current_entries:
-            if text and text not in entry["name"].lower():
+        for node in self._current_children:
+            name_lower = (node.name or "").lower()
+            path_lower = (node.path or "").lower()
+            if text and text not in name_lower and text not in path_lower:
                 continue
-            item = QStandardItem(entry["name"])
+
+            item = QStandardItem(node.name or "(未命名)")
             item.setEditable(False)
-            icon = style.standardIcon(QStyle.SP_DirIcon if entry["is_dir"] else QStyle.SP_FileIcon)
-            item.setIcon(icon)
-            item.setData(entry["path"], Qt.UserRole)
-            item.setToolTip(entry["path"])
+            item.setIcon(style.standardIcon(QStyle.SP_DirIcon))
+            item.setData(node.node_id, Qt.UserRole)
+            item.setToolTip(node.path or "")
             self._list_model.appendRow(item)
             rows_added += 1
 
@@ -127,86 +157,152 @@ class TabFavoritesWidget(QWidget):
     # 事件处理
     # ------------------------------------------------------------------
     def on_add_folder(self) -> None:
+        parent_id = self._current_node_id if self._current_node_id in self._node_index else self._root.node_id
         folder = QFileDialog.getExistingDirectory(self, "选择收藏文件夹")
         if not folder:
             return
 
-        existing = next((fav for fav in self._favorites if self._is_same_path(fav.path, folder)), None)
-        if existing:
-            QMessageBox.information(self, "已存在", "该文件夹已在收藏列表中。")
-            self._current_folder = existing.path
-            self._load_folder_entries(existing.path)
+        if not os.path.isdir(folder):
+            QMessageBox.warning(self, "目录不存在", f"目录不存在或无法访问：\n{folder}")
             return
 
-        favorite = self._store.add_folder(folder)
-        self._favorites = self._store.load()
-        self._current_folder = favorite.path
+        default_alias = os.path.basename(os.path.normpath(folder)) or folder
+        alias, ok = QInputDialog.getText(self, "收藏名称", "请输入收藏名称：", text=default_alias)
+        if not ok:
+            return
+
+        alias = alias.strip() or default_alias
+        previous_ids = set(self._node_index.keys())
+        try:
+            node = self._store.add_folder(folder, alias=alias, parent_id=parent_id)
+        except FileNotFoundError:
+            QMessageBox.warning(self, "目录不存在", f"目录不存在或无法访问：\n{folder}")
+            return
+        except KeyError:
+            QMessageBox.warning(self, "添加失败", "未找到目标父节点，可能收藏结构已变化，请刷新后重试。")
+            return
+        except Exception as exc:
+            logging.exception("添加收藏失败: %s", folder)
+            QMessageBox.warning(self, "添加失败", f"写入收藏夹配置时发生错误：\n{exc}")
+            return
+
+        existed_before = node.node_id in previous_ids
+        self._current_node_id = parent_id
+        self._reload_from_store()
         self._refresh_tree()
-        self._load_folder_entries(favorite.path)
+
+        if existed_before:
+            QMessageBox.information(self, "已存在", "该文件夹已在当前收藏中。")
+        else:
+            QMessageBox.information(self, "已添加", "收藏已添加。")
 
     def on_refresh(self) -> None:
-        self._load_favorites()
-        self._refresh_tree(select_first=True)
-        if self._current_folder:
-            self._load_folder_entries(self._current_folder)
+        previous_id = self._current_node_id
+        self._reload_from_store()
+        if previous_id not in self._node_index:
+            previous_id = self._root.node_id
+        self._current_node_id = previous_id
+        self._refresh_tree()
 
     def on_tree_selection_changed(self, current: QModelIndex, _previous: QModelIndex) -> None:
-        path = current.data(Qt.UserRole)
-        if not path:
-            self._current_folder = None
-            self._current_entries = []
-            self._apply_filter_to_list()
-            return
+        node_id = current.data(Qt.UserRole)
+        if node_id is None:
+            node_id = self._root.node_id
 
-        self._current_folder = str(path)
-        self._load_folder_entries(self._current_folder)
+        try:
+            node_id = int(node_id)
+        except (TypeError, ValueError):
+            node_id = self._root.node_id
+
+        self._current_node_id = node_id
+        self._display_children(node_id)
 
     def on_tree_double_clicked(self, index: QModelIndex) -> None:
-        path = index.data(Qt.UserRole)
-        if path:
-            self._open_in_system(path)
+        node_id = index.data(Qt.UserRole)
+        try:
+            node_id = int(node_id)
+        except (TypeError, ValueError):
+            return
+
+        node = self._node_index.get(node_id)
+        if node and node.path:
+            self._open_in_system(node.path)
 
     def on_tree_context_menu(self, point: QPoint) -> None:
         index = self.ui.treeView.indexAt(point)
         if not index.isValid():
             return
 
-        path = index.data(Qt.UserRole)
-        if not path:
+        node_id = index.data(Qt.UserRole)
+        if node_id is None:
+            return
+
+        try:
+            node_id_int = int(node_id)
+        except (TypeError, ValueError):
+            return
+
+        node = self._node_index.get(node_id_int)
+        if node is None:
             return
 
         menu = QMenu(self.ui.treeView)
-        open_action = menu.addAction("打开")
-        menu.addSeparator()
-        remove_action = menu.addAction("移除收藏")
+        open_action = remove_action = None
+        if node.path:
+            open_action = menu.addAction("打开")
+        if node_id_int != self._root.node_id:
+            if open_action:
+                menu.addSeparator()
+            remove_action = menu.addAction("移除收藏")
         action = menu.exec(self.ui.treeView.mapToGlobal(point))
-        if action == open_action:
-            self._open_in_system(path)
+        if action == open_action and node.path:
+            self._open_in_system(node.path)
         elif action == remove_action:
-            self._remove_favorite(path)
+            self._remove_node(node_id_int)
 
     def on_list_item_double_clicked(self, index: QModelIndex) -> None:
-        path = index.data(Qt.UserRole)
-        if path and os.path.exists(path):
-            self._open_in_system(path)
+        node_id = index.data(Qt.UserRole)
+        try:
+            node_id = int(node_id)
+        except (TypeError, ValueError):
+            return
+
+        node = self._node_index.get(node_id)
+        if node and node.path:
+            self._open_in_system(node.path)
 
     def on_list_context_menu(self, point: QPoint) -> None:
         index = self.ui.listView.indexAt(point)
         if not index.isValid():
             return
 
-        path = index.data(Qt.UserRole)
-        if not path or not os.path.exists(path):
+        node_id = index.data(Qt.UserRole)
+        if node_id is None:
+            return
+
+        try:
+            node_id = int(node_id)
+        except (TypeError, ValueError):
+            return
+
+        node = self._node_index.get(node_id)
+        if node is None:
             return
 
         menu = QMenu(self.ui.listView)
-        open_action = menu.addAction("打开")
-        reveal_action = menu.addAction("在资源管理器中显示")
+        open_action = reveal_action = remove_action = None
+        if node.path:
+            open_action = menu.addAction("打开")
+            reveal_action = menu.addAction("在资源管理器中显示")
+        remove_action = menu.addAction("移除收藏")
+
         action = menu.exec(self.ui.listView.mapToGlobal(point))
-        if action == open_action:
-            self._open_in_system(path)
-        elif action == reveal_action:
-            self._reveal_in_explorer(path)
+        if action == open_action and node.path:
+            self._open_in_system(node.path)
+        elif action == reveal_action and node.path:
+            self._reveal_in_explorer(node.path)
+        elif action == remove_action:
+            self._remove_node(node_id)
 
     def on_filter_text_changed(self, text: str) -> None:
         self._filter_text = text.strip()
@@ -215,63 +311,42 @@ class TabFavoritesWidget(QWidget):
     # ------------------------------------------------------------------
     # 数据与工具方法
     # ------------------------------------------------------------------
-    def _load_folder_entries(self, folder: str) -> None:
-        if not os.path.isdir(folder):
-            QMessageBox.warning(self, "目录不存在", f"目录已不存在，将从收藏中移除：\n{folder}")
-            self._remove_favorite(folder, silent=True)
-            return
-
-        entries: List[Dict[str, str]] = []
-        try:
-            with os.scandir(folder) as iterator:
-                for entry in iterator:
-                    entries.append(
-                        {
-                            "name": entry.name,
-                            "path": entry.path,
-                            "is_dir": entry.is_dir(),
-                        }
-                    )
-        except PermissionError as exc:
-            QMessageBox.warning(self, "无法访问", f"没有权限读取目录：\n{folder}\n{exc}")
-            return
-        except Exception as exc:
-            logging.exception("读取收藏目录失败: %s", folder)
-            QMessageBox.warning(self, "读取失败", f"读取目录时发生错误：\n{folder}\n{exc}")
-            return
-
-        self._current_entries = sorted(entries, key=lambda item: (not item["is_dir"], item["name"].lower()))
+    def _display_children(self, node_id: int) -> None:
+        node = self._node_index.get(node_id)
+        self._current_children = list(node.children) if node else []
         self._apply_filter_to_list()
 
-    def _remove_favorite(self, path: str, *, silent: bool = False) -> None:
-        if self._current_folder and self._is_same_path(self._current_folder, path):
-            self._current_folder = None
-            self._current_entries.clear()
-            self._apply_filter_to_list()
+    def _find_parent_id(self, node_id: int) -> Optional[int]:
+        for candidate_id, candidate in self._node_index.items():
+            for child in candidate.children:
+                if child.node_id == node_id:
+                    return candidate_id
+        return None
 
+    def _remove_node(self, node_id: int, *, silent: bool = False) -> None:
+        if node_id == self._root.node_id:
+            if not silent:
+                QMessageBox.information(self, "无法移除", "根收藏夹不能被移除。")
+            return
+
+        parent_id = self._find_parent_id(node_id) or self._root.node_id
         try:
-            changed = self._store.remove_folder(path)
+            changed = self._store.remove_node(node_id)
         except Exception as exc:
-            logging.exception("移除收藏失败: %s", path)
+            logging.exception("移除收藏失败: %s", node_id)
             QMessageBox.warning(self, "移除失败", f"写入收藏夹配置时发生错误：\n{exc}")
             return
 
         if not changed:
+            if not silent:
+                QMessageBox.information(self, "未移除", "未找到对应的收藏项目。")
             return
 
-        self._favorites = self._store.load()
-        self._refresh_tree(select_first=True)
+        self._current_node_id = parent_id
+        self._reload_from_store()
+        self._refresh_tree()
         if not silent:
             QMessageBox.information(self, "已移除", "收藏已移除。")
-
-    @staticmethod
-    def _normalize_path(path: Optional[str]) -> Optional[str]:
-        if not path:
-            return None
-        return os.path.normcase(os.path.normpath(path))
-
-    def _is_same_path(self, a: Optional[str], b: Optional[str]) -> bool:
-        return self._normalize_path(a) == self._normalize_path(b)
 
     def _open_in_system(self, path: str) -> None:
         try:

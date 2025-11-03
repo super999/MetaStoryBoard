@@ -23,7 +23,7 @@ from MuseLog.explorer.navigation_mixin import NavigationMixin
 from MuseLog.explorer.persistence_mixin import PersistenceMixin
 from MuseLog.explorer_custom_widgets import resolve_custom_widget_builder
 from MuseLog.explorer_signals import signal_manager
-from MuseLog.favorites_store import FavoriteFolder, FavoritesStore
+from MuseLog.favorites_store import FavoriteNode, FavoritesStore
 from MuseLog.ui.ui_tab_explorer import Ui_TabExplorer
 from MuseLog.widget_video_detail import VideoDetailWidget
 
@@ -130,35 +130,22 @@ class TabExplorerWidget(
             QMessageBox.warning(self, "收藏失败", f"目录不存在：\n{normalized}", QMessageBox.Ok)
             return
 
-        try:
-            favorites = self._favorites_store.load()
-        except Exception as exc:
-            logging.exception("读取收藏夹失败: %s", normalized)
-            QMessageBox.critical(self, "收藏失败", f"读取收藏配置时发生错误：\n{exc}")
-            return
-
-        normalized_case = os.path.normcase(normalized)
-        existing = next(
-            (
-                favorite
-                for favorite in favorites
-                if os.path.normcase(os.path.normpath(favorite.path)) == normalized_case
-            ),
-            None,
-        )
-
+        existing = self._find_favorite_node_by_path(normalized)
         if existing:
-            QMessageBox.information(self, "已存在", "该目录已在收藏列表中。", QMessageBox.Ok)
+            QMessageBox.information(self, "已存在", f"该目录已在收藏列表中：\n{existing.name}", QMessageBox.Ok)
             return
 
         try:
-            favorite = self._favorites_store.add_folder(normalized)
+            node = self._favorites_store.add_folder(normalized)
+        except FileNotFoundError:
+            QMessageBox.warning(self, "收藏失败", f"目录不存在：\n{normalized}", QMessageBox.Ok)
+            return
         except Exception as exc:  # pragma: no cover - defensive
             logging.exception("添加收藏失败: %s", normalized)
             QMessageBox.critical(self, "收藏失败", f"写入收藏配置时发生错误：\n{exc}")
             return
 
-        alias = favorite.alias if isinstance(favorite, FavoriteFolder) else os.path.basename(normalized)
+        alias = node.name if isinstance(node, FavoriteNode) else os.path.basename(normalized)
         QMessageBox.information(self, "已收藏", f"目录已加入收藏：\n{alias}", QMessageBox.Ok)
 
     def _confirm_delete_folder(self, folder_path: str) -> None:
@@ -350,3 +337,18 @@ class TabExplorerWidget(
             if not parent or self._normalize_path(parent) == normalized_candidate:
                 return None
             candidate = parent
+
+    def _find_favorite_node_by_path(self, path: str) -> Optional[FavoriteNode]:
+        normalized_target = self._normalize_path(path)
+        try:
+            root = self._favorites_store.get_root()
+        except Exception:
+            return None
+
+        stack: list[FavoriteNode] = [root]
+        while stack:
+            node = stack.pop()
+            if node.path and self._normalize_path(node.path) == normalized_target:
+                return node
+            stack.extend(node.children)
+        return None
