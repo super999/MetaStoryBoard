@@ -288,6 +288,32 @@ class FavoritesStore:
                 return []
             return deepcopy(parent.children)
 
+    def rename_node(self, node_id: int, new_name: str) -> FavoriteNode:
+        new_name = new_name.strip()
+        if not new_name:
+            raise ValueError("收藏名称不能为空")
+
+        with self._lock:
+            node = self._find_node(node_id)
+            if node is None:
+                raise KeyError(f"Node {node_id} does not exist")
+
+            parent = self._find_parent(self._root, node_id)
+            siblings: Sequence[FavoriteNode]
+            if parent is None:
+                siblings = [self._root]
+            else:
+                siblings = parent.children
+
+            lowered = new_name.lower()
+            for sibling in siblings:
+                if sibling.node_id != node_id and sibling.name.lower() == lowered:
+                    raise ValueError("同级已存在同名收藏")
+
+            node.name = new_name
+            self._save_data()
+            return deepcopy(node)
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

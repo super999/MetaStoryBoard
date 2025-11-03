@@ -7,13 +7,13 @@ from typing import Dict, List, Optional
 from PySide6.QtCore import QModelIndex, QPoint, Qt
 from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
-    QFileDialog,
-    QInputDialog,
     QListView,
     QMenu,
     QMessageBox,
     QStyle,
-    QWidget,QDialog
+    QWidget,
+    QDialog,
+    QAbstractItemDelegate,
 )
 
 from MuseLog.favorites_store import FavoriteNode, FavoritesStore
@@ -44,6 +44,10 @@ class TabFavoritesWidget(QWidget):
 
         self._list_model = QStandardItemModel(self.ui.listView)
         self.ui.listView.setModel(self._list_model)
+        self._list_model.itemChanged.connect(self._on_list_item_changed)
+        delegate = self.ui.listView.itemDelegate()
+        if isinstance(delegate, QAbstractItemDelegate):
+            delegate.closeEditor.connect(self._on_list_editor_closed)  # type: ignore[attr-defined]
 
         self._store = FavoritesStore()
         self._root: FavoriteNode = self._store.get_root()
@@ -52,6 +56,9 @@ class TabFavoritesWidget(QWidget):
         self._current_node_id: int = self._root.node_id
         self._current_children: List[FavoriteNode] = []
         self._filter_text: str = ""
+        self._renaming_node_id: Optional[int] = None
+        self._renaming_item: Optional[QStandardItem] = None
+        self._renaming_original_name: str = ""
 
         self._reload_from_store()
         self._refresh_tree()
@@ -129,6 +136,7 @@ class TabFavoritesWidget(QWidget):
             self._build_tree_items(child, item)
 
     def _apply_filter_to_list(self) -> None:
+        self._cancel_rename()
         self._list_model.clear()
 
         text = self._filter_text.lower()
@@ -226,11 +234,14 @@ class TabFavoritesWidget(QWidget):
             if open_action:
                 menu.addSeparator()
             remove_action = menu.addAction("移除收藏")
+            rename_action = menu.addAction("重命名")  
         action = menu.exec(self.ui.treeView.mapToGlobal(point))
         if action == open_action and node.path:
             self._open_in_system(node.path)
         elif action == remove_action:
             self._remove_node(node_id_int)
+        elif action == rename_action:
+            self._rename_node(node_id_int)
 
     def on_list_item_double_clicked(self, index: QModelIndex) -> None:
         node_id = index.data(Qt.UserRole)
@@ -266,9 +277,9 @@ class TabFavoritesWidget(QWidget):
         if node.path:
             open_action = menu.addAction("打开")
             reveal_action = menu.addAction("在资源管理器中显示")
-        rename_action = menu.addAction("重命名")
+            
         remove_action = menu.addAction("移除收藏")
-		
+
         action = menu.exec(self.ui.listView.mapToGlobal(point))
         if action == open_action and node.path:
             self._open_in_system(node.path)
@@ -276,8 +287,7 @@ class TabFavoritesWidget(QWidget):
             self._reveal_in_explorer(node.path)
         elif action == remove_action:
             self._remove_node(node_id)
-        elif action == rename_action:
-            self._rename_node(node_id)
+       
 
     def on_filter_text_changed(self, text: str) -> None:
         self._filter_text = text.strip()
@@ -324,7 +334,109 @@ class TabFavoritesWidget(QWidget):
             QMessageBox.information(self, "已移除", "收藏已移除。")
             
     def _rename_node(self, node_id: int) -> None:
-        node = self._node_index.get(node_id)
+        if node_id == self._root.node_id:
+            QMessageBox.information(self, "无法重命名", "根收藏夹不支持重命名。")
+            return
+
+        item = self._find_list_item(node_id)
+        if item is None:
+            QMessageBox.information(self, "无法重命名", "请先选中要重命名的收藏项目。")
+            return
+
+        self._cancel_rename()
+        self._renaming_node_id = node_id
+        self._renaming_item = item
+        self._renaming_original_name = item.text()
+
+        item.setEditable(True)
+        index = self._list_model.indexFromItem(item)
+        self.ui.listView.setCurrentIndex(index)
+        self.ui.listView.edit(index)
+
+    def _find_list_item(self, node_id: int) -> Optional[QStandardItem]:
+        for row in range(self._list_model.rowCount()):
+            item = self._list_model.item(row)
+            if item is None:
+                continue
+            data = item.data(Qt.UserRole)
+            try:
+                item_node_id = int(data)
+            except (TypeError, ValueError):
+                continue
+            if item_node_id == node_id:
+                return item
+        return None
+
+    def _cancel_rename(self) -> None:
+        if self._renaming_item is None:
+            return
+        was_blocked = self._list_model.signalsBlocked()
+        self._list_model.blockSignals(True)
+        self._renaming_item.setText(self._renaming_original_name)
+        self._renaming_item.setEditable(False)
+        self._list_model.blockSignals(was_blocked)
+        self._clear_rename_state()
+
+    def _on_list_item_changed(self, item: QStandardItem) -> None:
+        if self._renaming_node_id is None or item is not self._renaming_item:
+            return
+
+        new_name = item.text().strip()
+        if not new_name:
+            QMessageBox.warning(self, "重命名失败", "收藏名称不能为空。")
+            self._cancel_rename()
+            return
+
+        if new_name == self._renaming_original_name:
+            self._cancel_rename()
+            return
+
+        parent_id = self._find_parent_id(self._renaming_node_id) or self._root.node_id
+        parent_node = self._node_index.get(parent_id)
+        if parent_node:
+            for child in parent_node.children:
+                if child.node_id != self._renaming_node_id and child.name.lower() == new_name.lower():
+                    QMessageBox.warning(self, "重命名失败", "同一层级中已存在相同名称。")
+                    self._cancel_rename()
+                    return
+
+        try:
+            self._store.rename_node(self._renaming_node_id, new_name)
+        except ValueError as exc:
+            QMessageBox.warning(self, "重命名失败", str(exc))
+            self._cancel_rename()
+            return
+        except KeyError:
+            QMessageBox.warning(self, "重命名失败", "未找到对应的收藏节点。")
+            self._cancel_rename()
+            return
+        except Exception as exc:  # pragma: no cover - defensive
+            logging.exception("重命名收藏失败: %s", self._renaming_node_id)
+            QMessageBox.warning(self, "重命名失败", f"写入收藏夹配置时发生错误：\n{exc}")
+            self._cancel_rename()
+            return
+
+        renamed_parent_id = parent_id
+        self._clear_rename_state()
+        self._current_node_id = renamed_parent_id
+        self._reload_from_store()
+        self._refresh_tree()
+
+    def _clear_rename_state(self) -> None:
+        if self._renaming_item is not None:
+            self._renaming_item.setEditable(False)
+        self._renaming_node_id = None
+        self._renaming_item = None
+        self._renaming_original_name = ""
+
+    def _on_list_editor_closed(self, _editor: QWidget, hint: QAbstractItemDelegate.EndEditHint) -> None:
+        if self._renaming_node_id is None:
+            return
+        if hint == QAbstractItemDelegate.RevertModelCache:
+            self._cancel_rename()
+        elif hint == QAbstractItemDelegate.NoHint:
+            if self._renaming_item is not None and self._renaming_item.isEditable():
+                self._renaming_item.setEditable(False)
 
     def _open_in_system(self, path: str) -> None:
         try:
