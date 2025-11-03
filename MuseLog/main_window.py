@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QMainWindow, QApplication
 
-from MuseLog.tab_explorer_widget import TabExplorerWidget
+from MuseLog.explorer import TabExplorerWidget
 from MuseLog.tab_favorites_widget import TabFavoritesWidget
 from MuseLog.tab_home_widget import TabHomeWidget
 from MuseLog.tab_settings_widget import TabSettingsWidget
