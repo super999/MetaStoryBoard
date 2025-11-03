@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from typing import List, Sequence
+from threading import Lock
+from typing import ClassVar, List, Sequence
 
 from MuseLog.config_paths import get_config_file
 
@@ -20,8 +21,20 @@ class FavoriteFolder:
 class FavoritesStore:
     filename = "tab_favorites.json"
 
+    _instance: ClassVar["FavoritesStore"] | None = None
+    _lock: ClassVar[Lock] = Lock()
+
+    def __new__(cls, *args, **kwargs):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self) -> None:
+        if getattr(self, "_initialized", False):
+            return
         self.file_path = get_config_file(self.filename)
+        self._initialized = True
 
     def load(self) -> List[FavoriteFolder]:
         try:
@@ -102,3 +115,23 @@ class FavoritesStore:
             candidate = f"{alias} ({counter})"
             counter += 1
         return candidate
+
+
+def get_favorites_store() -> FavoritesStore:
+    """Return the shared FavoritesStore instance."""
+    return FavoritesStore()
+
+
+def list_favorites() -> List[FavoriteFolder]:
+    """List all favorite folders using the shared store."""
+    return get_favorites_store().load()
+
+
+def add_favorite_folder(path: str, alias: str | None = None) -> FavoriteFolder:
+    """Add a folder to favorites via the shared store."""
+    return get_favorites_store().add_folder(path, alias)
+
+
+def remove_favorite_folder(path: str) -> bool:
+    """Remove a folder from favorites via the shared store."""
+    return get_favorites_store().remove_folder(path)

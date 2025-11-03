@@ -17,15 +17,15 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QHeaderView, QLabel,
     QLineEdit, QListView, QPushButton, QSizePolicy,
-    QSpacerItem, QSplitter, QTreeView, QVBoxLayout,
-    QWidget)
+    QSpacerItem, QSplitter, QToolButton, QTreeView,
+    QVBoxLayout, QWidget)
 
 class Ui_TabFavorites(object):
     def setupUi(self, TabFavorites):
         if not TabFavorites.objectName():
             TabFavorites.setObjectName(u"TabFavorites")
         TabFavorites.resize(1010, 582)
-        TabFavorites.setStyleSheet(u" QWidget #wid {\n"
+        TabFavorites.setStyleSheet(u" QWidget #11 {\n"
 "       border: 1px solid #d3d3d3;\n"
 " }")
         self.verticalLayout = QVBoxLayout(TabFavorites)
@@ -49,14 +49,32 @@ class Ui_TabFavorites(object):
         self.verticalLayout_4.setSpacing(0)
         self.verticalLayout_4.setObjectName(u"verticalLayout_4")
         self.verticalLayout_4.setContentsMargins(0, 0, 0, 0)
-        self.label = QLabel(self.leftPanel)
+        self.widget_2 = QWidget(self.leftPanel)
+        self.widget_2.setObjectName(u"widget_2")
+        self.horizontalLayout_2 = QHBoxLayout(self.widget_2)
+        self.horizontalLayout_2.setSpacing(0)
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
+        self.label = QLabel(self.widget_2)
         self.label.setObjectName(u"label")
         self.label.setMinimumSize(QSize(0, 30))
         font = QFont()
         font.setPointSize(12)
         self.label.setFont(font)
 
-        self.verticalLayout_4.addWidget(self.label)
+        self.horizontalLayout_2.addWidget(self.label)
+
+        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_2.addItem(self.horizontalSpacer_2)
+
+        self.btnRefresh = QToolButton(self.widget_2)
+        self.btnRefresh.setObjectName(u"btnRefresh")
+
+        self.horizontalLayout_2.addWidget(self.btnRefresh)
+
+
+        self.verticalLayout_4.addWidget(self.widget_2)
 
         self.lineFilter = QLineEdit(self.leftPanel)
         self.lineFilter.setObjectName(u"lineFilter")
@@ -129,6 +147,7 @@ class Ui_TabFavorites(object):
     def retranslateUi(self, TabFavorites):
         TabFavorites.setWindowTitle(QCoreApplication.translate("TabFavorites", u"\u6536\u85cf\u5939", None))
         self.label.setText(QCoreApplication.translate("TabFavorites", u"\u6536\u85cf\u5939", None))
+        self.btnRefresh.setText(QCoreApplication.translate("TabFavorites", u"\u5237\u65b0", None))
         self.label_3.setText(QCoreApplication.translate("TabFavorites", u"\u9879\u76ee", None))
         self.btnAddFolder.setText(QCoreApplication.translate("TabFavorites", u"\u6dfb\u52a0\u6587\u4ef6\u5939", None))
     # retranslateUi

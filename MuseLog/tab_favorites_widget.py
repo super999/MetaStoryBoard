@@ -53,6 +53,7 @@ class TabFavoritesWidget(QWidget):
         self._refresh_tree(select_first=True)
 
         self.ui.btnAddFolder.clicked.connect(self.on_add_folder)
+        self.ui.btnRefresh.clicked.connect(self.on_refresh)
         self.ui.treeView.selectionModel().currentChanged.connect(self.on_tree_selection_changed)
         self.ui.treeView.doubleClicked.connect(self.on_tree_double_clicked)
         self.ui.treeView.customContextMenuRequested.connect(self.on_tree_context_menu)
@@ -142,6 +143,12 @@ class TabFavoritesWidget(QWidget):
         self._current_folder = favorite.path
         self._refresh_tree()
         self._load_folder_entries(favorite.path)
+
+    def on_refresh(self) -> None:
+        self._load_favorites()
+        self._refresh_tree(select_first=True)
+        if self._current_folder:
+            self._load_folder_entries(self._current_folder)
 
     def on_tree_selection_changed(self, current: QModelIndex, _previous: QModelIndex) -> None:
         path = current.data(Qt.UserRole)
@@ -293,4 +300,3 @@ class TabFavoritesWidget(QWidget):
         except Exception as exc:
             logging.exception("定位路径失败: %s", path)
             QMessageBox.warning(self, "打开失败", f"无法定位到：\n{path}\n{exc}")
-
