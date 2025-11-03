@@ -144,7 +144,74 @@ class FavoritesStore:
         with self._lock:
             return deepcopy(self._root) if clone else self._root
 
-    def add_folder(
+    def add_child_node(self, node_name: str, parent_id: Optional[int] = None) -> FavoriteNode:
+        parent_id = self._root.node_id if parent_id is None else parent_id
+
+        with self._lock:
+            parent = self._find_node(parent_id)
+            if parent is None:
+                raise KeyError(f"Parent node {parent_id} does not exist")
+
+            name = node_name.strip()
+            name = self._ensure_unique_alias(name, parent.children)
+
+            node = FavoriteNode(
+                node_id=self._next_id,
+                name=name,
+                path="",
+                created_at=time.time(),
+            )
+            self._next_id += 1
+            parent.children.append(node)
+            self._save_data()
+            return deepcopy(node)
+
+
+    def get_node_by_path(self, tree_path: str) -> Optional[FavoriteNode]:
+        """根据路径查找收藏节点。
+        Args:
+            tree_path (str): 收藏节点的路径。例如； /A/B
+        Returns:
+            Optional[FavoriteNode]: 如果找到收藏节点，则返回该节点，否则返回 None。
+        """
+        with self._lock:
+            parts = tree_path.strip().split('/')
+            current = self._root
+            for part in parts:
+                found = None
+                for child in current.children:
+                    if child.name == part:
+                        found = child
+                        break
+                if found is None:
+                    return None
+                current = found
+            return deepcopy(current)
+        
+    def get_node_path(self, node_id: int) -> str:
+        """获取收藏节点的路径, 通过深度优先搜索。
+        Args:
+            node_id (int): 收藏节点的 ID。
+        Returns:
+            str: 收藏节点的路径。例如； /A/B。如果节点不存在，则返回空字符串。
+        """
+        with self._lock:
+            path_parts = []
+            def dfs(current: FavoriteNode, target_id: int) -> bool:
+                if current.node_id == target_id:
+                    return True
+                for child in current.children:
+                    if dfs(child, target_id):
+                        path_parts.append(child.name)
+                        return True
+                return False
+
+            if dfs(self._root, node_id):
+                path_parts.reverse()
+                return '/' + '/'.join(path_parts)
+            return ""
+        
+    def add_leaf_node(
         self,
         path: str,
         alias: str | None = None,
@@ -293,7 +360,7 @@ def list_favorites(parent_id: int | None = None) -> List[FavoriteNode]:
 
 def add_favorite_folder(path: str, alias: str | None = None, parent_id: int | None = None) -> FavoriteNode:
     """Add a folder to favorites via the shared store."""
-    return get_favorites_store().add_folder(path=path, alias=alias, parent_id=parent_id)
+    return get_favorites_store().add_leaf_node(path=path, alias=alias, parent_id=parent_id)
 
 
 def remove_favorite_folder(node_id: int) -> bool:

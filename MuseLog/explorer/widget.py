@@ -136,7 +136,7 @@ class TabExplorerWidget(
             return
 
         try:
-            node = self._favorites_store.add_folder(normalized)
+            node = self._favorites_store.add_leaf_node(normalized)
         except FileNotFoundError:
             QMessageBox.warning(self, "收藏失败", f"目录不存在：\n{normalized}", QMessageBox.Ok)
             return

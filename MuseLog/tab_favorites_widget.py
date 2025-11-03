@@ -13,11 +13,12 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QStyle,
-    QWidget,
+    QWidget,QDialog
 )
 
 from MuseLog.favorites_store import FavoriteNode, FavoritesStore
 from MuseLog.ui.ui_tab_favorites import Ui_TabFavorites
+from MuseLog.favorites_new_folder_dialog import DialogFavoritesNewFolder
 
 
 class TabFavoritesWidget(QWidget):
@@ -157,44 +158,15 @@ class TabFavoritesWidget(QWidget):
     # 事件处理
     # ------------------------------------------------------------------
     def on_add_folder(self) -> None:
-        parent_id = self._current_node_id if self._current_node_id in self._node_index else self._root.node_id
-        folder = QFileDialog.getExistingDirectory(self, "选择收藏文件夹")
-        if not folder:
-            return
-
-        if not os.path.isdir(folder):
-            QMessageBox.warning(self, "目录不存在", f"目录不存在或无法访问：\n{folder}")
-            return
-
-        default_alias = os.path.basename(os.path.normpath(folder)) or folder
-        alias, ok = QInputDialog.getText(self, "收藏名称", "请输入收藏名称：", text=default_alias)
-        if not ok:
-            return
-
-        alias = alias.strip() or default_alias
-        previous_ids = set(self._node_index.keys())
-        try:
-            node = self._store.add_folder(folder, alias=alias, parent_id=parent_id)
-        except FileNotFoundError:
-            QMessageBox.warning(self, "目录不存在", f"目录不存在或无法访问：\n{folder}")
-            return
-        except KeyError:
-            QMessageBox.warning(self, "添加失败", "未找到目标父节点，可能收藏结构已变化，请刷新后重试。")
-            return
-        except Exception as exc:
-            logging.exception("添加收藏失败: %s", folder)
-            QMessageBox.warning(self, "添加失败", f"写入收藏夹配置时发生错误：\n{exc}")
-            return
-
-        existed_before = node.node_id in previous_ids
-        self._current_node_id = parent_id
-        self._reload_from_store()
-        self._refresh_tree()
-
-        if existed_before:
-            QMessageBox.information(self, "已存在", "该文件夹已在当前收藏中。")
-        else:
-            QMessageBox.information(self, "已添加", "收藏已添加。")
+        current_item: QModelIndex = self.ui.treeView.currentIndex()
+        current_item_name = current_item.data()
+        logging.info(f"Creating new folder under: {current_item_name}")
+        current_parent_id = self._current_node_id
+        
+        dialog = DialogFavoritesNewFolder(self, folder_path="新建文件夹", parent_node_id=current_parent_id)
+        if dialog.exec() == QDialog.Accepted:
+            self._reload_from_store()
+            self._refresh_tree()
 
     def on_refresh(self) -> None:
         previous_id = self._current_node_id
@@ -294,8 +266,9 @@ class TabFavoritesWidget(QWidget):
         if node.path:
             open_action = menu.addAction("打开")
             reveal_action = menu.addAction("在资源管理器中显示")
+        rename_action = menu.addAction("重命名")
         remove_action = menu.addAction("移除收藏")
-
+		
         action = menu.exec(self.ui.listView.mapToGlobal(point))
         if action == open_action and node.path:
             self._open_in_system(node.path)
@@ -303,6 +276,8 @@ class TabFavoritesWidget(QWidget):
             self._reveal_in_explorer(node.path)
         elif action == remove_action:
             self._remove_node(node_id)
+        elif action == rename_action:
+            self._rename_node(node_id)
 
     def on_filter_text_changed(self, text: str) -> None:
         self._filter_text = text.strip()
@@ -347,6 +322,9 @@ class TabFavoritesWidget(QWidget):
         self._refresh_tree()
         if not silent:
             QMessageBox.information(self, "已移除", "收藏已移除。")
+            
+    def _rename_node(self, node_id: int) -> None:
+        node = self._node_index.get(node_id)
 
     def _open_in_system(self, path: str) -> None:
         try:
