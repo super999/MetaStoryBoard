@@ -2,6 +2,7 @@ import logging
 import os
 import subprocess
 import sys
+from functools import partial
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import QModelIndex, QPoint, Qt
@@ -9,12 +10,17 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QAbstractItemDelegate,
+    QAbstractItemView,
+    QDialog,
+    QHBoxLayout,
+    QLabel,
     QListView,
     QMenu,
     QMessageBox,
+    QSizePolicy,
     QStyle,
+    QToolButton,
     QWidget,
-    QDialog, QAbstractItemView
 )
 
 from MuseLog.favorites_new_folder_dialog import DialogFavoritesNewFolder
@@ -149,6 +155,7 @@ class TabFavoritesWidget(QWidget):
 
     def _apply_filter_to_list(self) -> None:
         self._cancel_rename()
+        self._clear_list_index_widgets()
         self._list_model.clear()
 
         text = self._filter_text.lower()
@@ -170,6 +177,8 @@ class TabFavoritesWidget(QWidget):
             item.setData(node.node_id, Qt.ItemDataRole.UserRole)
             item.setToolTip(node.path or "")
             self._list_model.appendRow(item)
+            index = self._list_model.index(self._list_model.rowCount() - 1, 0)
+            self.ui.listView.setIndexWidget(index, self._create_list_item_widget(node))
             rows_added += 1
 
         if rows_added == 0:
@@ -439,6 +448,72 @@ class TabFavoritesWidget(QWidget):
         self._renaming_item = None
         self._renaming_original_name = ""
         self._renaming_model = None
+
+    def _clear_list_index_widgets(self) -> None:
+        for row in range(self._list_model.rowCount()):
+            index = self._list_model.index(row, 0)
+            self.ui.listView.setIndexWidget(index, None)
+
+    def _create_list_item_widget(self, node: FavoriteNode) -> QWidget:
+        container = QWidget(self.ui.listView)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(8, 2, 8, 2)
+        layout.setSpacing(6)
+
+        label = QLabel(node.name or "(未命名)", container)
+        label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        label.setToolTip(node.path or "")
+        layout.addWidget(label)
+
+        style = self.style()
+
+        if node.path:
+            btn_open = QToolButton(container)
+            btn_open.setAutoRaise(True)
+            btn_open.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton))
+            btn_open.setToolTip("打开")
+            btn_open.clicked.connect(partial(self._handle_open_clicked, node.node_id))
+            layout.addWidget(btn_open)
+
+            btn_reveal = QToolButton(container)
+            btn_reveal.setAutoRaise(True)
+            btn_reveal.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon))
+            btn_reveal.setToolTip("在资源管理器中显示")
+            btn_reveal.clicked.connect(partial(self._handle_reveal_clicked, node.node_id))
+            layout.addWidget(btn_reveal)
+
+        btn_rename = QToolButton(container)
+        btn_rename.setAutoRaise(True)
+        btn_rename.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView))
+        btn_rename.setToolTip("重命名")
+        btn_rename.clicked.connect(partial(self._handle_rename_clicked, node.node_id))
+        layout.addWidget(btn_rename)
+
+        btn_remove = QToolButton(container)
+        btn_remove.setAutoRaise(True)
+        btn_remove.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DialogCancelButton))
+        btn_remove.setToolTip("移除收藏")
+        btn_remove.clicked.connect(partial(self._handle_remove_clicked, node.node_id))
+        layout.addWidget(btn_remove)
+
+        return container
+
+    def _handle_open_clicked(self, node_id: int) -> None:
+        node = self._node_index.get(node_id)
+        if node and node.path:
+            # self._open_in_system(node.path)
+            self._open_in_editor(node.path)
+
+    def _handle_reveal_clicked(self, node_id: int) -> None:
+        node = self._node_index.get(node_id)
+        if node and node.path:
+            self._reveal_in_explorer(node.path)
+
+    def _handle_rename_clicked(self, node_id: int) -> None:
+        self._rename_node(node_id)
+
+    def _handle_remove_clicked(self, node_id: int) -> None:
+        self._remove_node(node_id)
 
     def _on_editor_closed(self, _editor: QWidget, hint: QAbstractItemDelegate.EndEditHint) -> None:
         if self._renaming_node_id is None:
