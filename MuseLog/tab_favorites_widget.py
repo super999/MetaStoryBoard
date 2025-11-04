@@ -5,24 +5,25 @@ import sys
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import QModelIndex, QPoint, Qt
+from PySide6.QtCore import QTimer
 from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
+    QAbstractItemDelegate,
     QListView,
     QMenu,
     QMessageBox,
     QStyle,
     QWidget,
-    QDialog,
-    QAbstractItemDelegate,
+    QDialog, QAbstractItemView
 )
 
+from MuseLog.favorites_new_folder_dialog import DialogFavoritesNewFolder
 from MuseLog.favorites_store import FavoriteNode, FavoritesStore
 from MuseLog.ui.ui_tab_favorites import Ui_TabFavorites
-from MuseLog.favorites_new_folder_dialog import DialogFavoritesNewFolder
 
 
 class TabFavoritesWidget(QWidget):
-    """Simple favorites manager that keeps handy folders and their contents."""
+    """Favorites manager supporting nested folders and quick navigation."""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -31,23 +32,32 @@ class TabFavoritesWidget(QWidget):
 
         self.ui.treeView.setHeaderHidden(True)
         self.ui.treeView.setUniformRowHeights(True)
-        self.ui.treeView.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.ui.listView.setEditTriggers(QListView.NoEditTriggers)
-        self.ui.listView.setSelectionMode(QListView.ExtendedSelection)
+        self.ui.treeView.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.ui.listView.setEditTriggers(
+                QAbstractItemView.EditTrigger.EditKeyPressed
+                | QAbstractItemView.EditTrigger.SelectedClicked
+                | QAbstractItemView.EditTrigger.DoubleClicked
+        )
+        self.ui.listView.setSelectionMode(QListView.SelectionMode.ExtendedSelection)
         self.ui.listView.setUniformItemSizes(True)
-        self.ui.listView.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.ui.listView.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.ui.lineFilter.setPlaceholderText("输入关键字以过滤右侧项目…")
 
         self._tree_model = QStandardItemModel(self.ui.treeView)
         self._tree_model.setHorizontalHeaderLabels(["收藏夹"])
         self.ui.treeView.setModel(self._tree_model)
+        self._tree_model.itemChanged.connect(self._on_tree_item_changed)
 
         self._list_model = QStandardItemModel(self.ui.listView)
         self.ui.listView.setModel(self._list_model)
         self._list_model.itemChanged.connect(self._on_list_item_changed)
-        delegate = self.ui.listView.itemDelegate()
-        if isinstance(delegate, QAbstractItemDelegate):
-            delegate.closeEditor.connect(self._on_list_editor_closed)  # type: ignore[attr-defined]
+
+        tree_delegate = self.ui.treeView.itemDelegate()
+        if isinstance(tree_delegate, QAbstractItemDelegate):
+            tree_delegate.closeEditor.connect(self._on_editor_closed)  # type: ignore[attr-defined]
+        list_delegate = self.ui.listView.itemDelegate()
+        if isinstance(list_delegate, QAbstractItemDelegate):
+            list_delegate.closeEditor.connect(self._on_editor_closed)  # type: ignore[attr-defined]
 
         self._store = FavoritesStore()
         self._root: FavoriteNode = self._store.get_root()
@@ -59,6 +69,7 @@ class TabFavoritesWidget(QWidget):
         self._renaming_node_id: Optional[int] = None
         self._renaming_item: Optional[QStandardItem] = None
         self._renaming_original_name: str = ""
+        self._renaming_model: Optional[QStandardItemModel] = None
 
         self._reload_from_store()
         self._refresh_tree()
@@ -108,23 +119,20 @@ class TabFavoritesWidget(QWidget):
         target_item = self._item_index.get(target_node_id) or self._item_index.get(self._root.node_id)
         if target_item is not None:
             self.ui.treeView.setCurrentIndex(target_item.index())
-            node_data = target_item.data(Qt.UserRole)
+            node_data = target_item.data(Qt.ItemDataRole.UserRole)
             try:
                 self._current_node_id = int(node_data)
             except (TypeError, ValueError):
                 self._current_node_id = self._root.node_id
         else:
             self._current_node_id = self._root.node_id
-            self._display_children(self._root.node_id)
-            return
-
         self._display_children(self._current_node_id)
 
     def _build_tree_items(self, node: FavoriteNode, parent_item: Optional[QStandardItem]) -> None:
         item = QStandardItem(node.name or "(未命名)")
         item.setEditable(False)
         item.setToolTip(node.path or node.name or "")
-        item.setData(node.node_id, Qt.UserRole)
+        item.setData(node.node_id, Qt.ItemDataRole.UserRole)
         self._item_index[node.node_id] = item
 
         if parent_item is None:
@@ -166,39 +174,34 @@ class TabFavoritesWidget(QWidget):
     # 事件处理
     # ------------------------------------------------------------------
     def on_add_folder(self) -> None:
-        current_item: QModelIndex = self.ui.treeView.currentIndex()
-        current_item_name = current_item.data()
-        logging.info(f"Creating new folder under: {current_item_name}")
-        current_parent_id = self._current_node_id
-        
+        current_parent_id = self._current_node_id if self._current_node_id in self._node_index else self._root.node_id
+        current_item = self.ui.treeView.currentIndex()
+        logging.info("Creating favorites folder under: %s", current_item.data())
+
         dialog = DialogFavoritesNewFolder(self, folder_path="新建文件夹", parent_node_id=current_parent_id)
-        if dialog.exec() == QDialog.Accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             self._reload_from_store()
             self._refresh_tree()
 
     def on_refresh(self) -> None:
-        previous_id = self._current_node_id
+        target_id = self._current_node_id
         self._reload_from_store()
-        if previous_id not in self._node_index:
-            previous_id = self._root.node_id
-        self._current_node_id = previous_id
+        if target_id not in self._node_index:
+            target_id = self._root.node_id
+        self._current_node_id = target_id
         self._refresh_tree()
 
     def on_tree_selection_changed(self, current: QModelIndex, _previous: QModelIndex) -> None:
-        node_id = current.data(Qt.UserRole)
-        if node_id is None:
-            node_id = self._root.node_id
-
+        node_id = current.data(Qt.ItemDataRole.UserRole)
         try:
             node_id = int(node_id)
         except (TypeError, ValueError):
             node_id = self._root.node_id
-
         self._current_node_id = node_id
         self._display_children(node_id)
 
     def on_tree_double_clicked(self, index: QModelIndex) -> None:
-        node_id = index.data(Qt.UserRole)
+        node_id = index.data(Qt.ItemDataRole.UserRole)
         try:
             node_id = int(node_id)
         except (TypeError, ValueError):
@@ -213,10 +216,7 @@ class TabFavoritesWidget(QWidget):
         if not index.isValid():
             return
 
-        node_id = index.data(Qt.UserRole)
-        if node_id is None:
-            return
-
+        node_id = index.data(Qt.ItemDataRole.UserRole)
         try:
             node_id_int = int(node_id)
         except (TypeError, ValueError):
@@ -227,14 +227,15 @@ class TabFavoritesWidget(QWidget):
             return
 
         menu = QMenu(self.ui.treeView)
-        open_action = remove_action = None
+        open_action = remove_action = rename_action = None
         if node.path:
             open_action = menu.addAction("打开")
         if node_id_int != self._root.node_id:
             if open_action:
                 menu.addSeparator()
             remove_action = menu.addAction("移除收藏")
-            rename_action = menu.addAction("重命名")  
+            rename_action = menu.addAction("重命名")
+
         action = menu.exec(self.ui.treeView.mapToGlobal(point))
         if action == open_action and node.path:
             self._open_in_system(node.path)
@@ -244,7 +245,7 @@ class TabFavoritesWidget(QWidget):
             self._rename_node(node_id_int)
 
     def on_list_item_double_clicked(self, index: QModelIndex) -> None:
-        node_id = index.data(Qt.UserRole)
+        node_id = index.data(Qt.ItemDataRole.UserRole)
         try:
             node_id = int(node_id)
         except (TypeError, ValueError):
@@ -259,10 +260,7 @@ class TabFavoritesWidget(QWidget):
         if not index.isValid():
             return
 
-        node_id = index.data(Qt.UserRole)
-        if node_id is None:
-            return
-
+        node_id = index.data(Qt.ItemDataRole.UserRole)
         try:
             node_id = int(node_id)
         except (TypeError, ValueError):
@@ -277,7 +275,6 @@ class TabFavoritesWidget(QWidget):
         if node.path:
             open_action = menu.addAction("打开")
             reveal_action = menu.addAction("在资源管理器中显示")
-            
         remove_action = menu.addAction("移除收藏")
 
         action = menu.exec(self.ui.listView.mapToGlobal(point))
@@ -287,7 +284,6 @@ class TabFavoritesWidget(QWidget):
             self._reveal_in_explorer(node.path)
         elif action == remove_action:
             self._remove_node(node_id)
-       
 
     def on_filter_text_changed(self, text: str) -> None:
         self._filter_text = text.strip()
@@ -332,52 +328,57 @@ class TabFavoritesWidget(QWidget):
         self._refresh_tree()
         if not silent:
             QMessageBox.information(self, "已移除", "收藏已移除。")
-            
+
     def _rename_node(self, node_id: int) -> None:
         if node_id == self._root.node_id:
             QMessageBox.information(self, "无法重命名", "根收藏夹不支持重命名。")
             return
 
-        item = self._find_list_item(node_id)
+        item = self._item_index.get(node_id)
         if item is None:
-            QMessageBox.information(self, "无法重命名", "请先选中要重命名的收藏项目。")
+            QMessageBox.information(self, "无法重命名", "未找到对应的收藏节点。")
             return
 
         self._cancel_rename()
         self._renaming_node_id = node_id
         self._renaming_item = item
         self._renaming_original_name = item.text()
+        self._renaming_model = self._tree_model
 
         item.setEditable(True)
-        index = self._list_model.indexFromItem(item)
-        self.ui.listView.setCurrentIndex(index)
-        self.ui.listView.edit(index)
-
-    def _find_list_item(self, node_id: int) -> Optional[QStandardItem]:
-        for row in range(self._list_model.rowCount()):
-            item = self._list_model.item(row)
-            if item is None:
-                continue
-            data = item.data(Qt.UserRole)
-            try:
-                item_node_id = int(data)
-            except (TypeError, ValueError):
-                continue
-            if item_node_id == node_id:
-                return item
-        return None
+        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+        
+        index = item.index()
+        if index.column() != 0:  # 保险：只让第0列进入编辑
+            index = index.siblingAtColumn(0)
+        try:
+            self.ui.treeView.setCurrentIndex(index)
+            self.ui.treeView.scrollTo(index)
+            self.ui.treeView.setFocus()
+            # 关键：把 edit 延迟到下一个事件循环，避免“editing failed”
+            QTimer.singleShot(0, lambda: self.ui.treeView.edit(index))
+        except Exception as e:
+            logging.error("Failed to edit item: %s", e)
 
     def _cancel_rename(self) -> None:
         if self._renaming_item is None:
             return
-        was_blocked = self._list_model.signalsBlocked()
-        self._list_model.blockSignals(True)
+
+        model = self._renaming_model or self._tree_model
+        was_blocked = model.signalsBlocked()
+        model.blockSignals(True)
         self._renaming_item.setText(self._renaming_original_name)
         self._renaming_item.setEditable(False)
-        self._list_model.blockSignals(was_blocked)
+        model.blockSignals(was_blocked)
         self._clear_rename_state()
 
     def _on_list_item_changed(self, item: QStandardItem) -> None:
+        self._handle_item_renamed(item)
+
+    def _on_tree_item_changed(self, item: QStandardItem) -> None:
+        self._handle_item_renamed(item)
+
+    def _handle_item_renamed(self, item: QStandardItem) -> None:
         if self._renaming_node_id is None or item is not self._renaming_item:
             return
 
@@ -416,9 +417,9 @@ class TabFavoritesWidget(QWidget):
             self._cancel_rename()
             return
 
-        renamed_parent_id = parent_id
+        renamed_node_id = self._renaming_node_id
         self._clear_rename_state()
-        self._current_node_id = renamed_parent_id
+        self._current_node_id = renamed_node_id
         self._reload_from_store()
         self._refresh_tree()
 
@@ -428,13 +429,14 @@ class TabFavoritesWidget(QWidget):
         self._renaming_node_id = None
         self._renaming_item = None
         self._renaming_original_name = ""
+        self._renaming_model = None
 
-    def _on_list_editor_closed(self, _editor: QWidget, hint: QAbstractItemDelegate.EndEditHint) -> None:
+    def _on_editor_closed(self, _editor: QWidget, hint: QAbstractItemDelegate.EndEditHint) -> None:
         if self._renaming_node_id is None:
             return
-        if hint == QAbstractItemDelegate.RevertModelCache:
+        if hint == QAbstractItemDelegate.EndEditHint.RevertModelCache:
             self._cancel_rename()
-        elif hint == QAbstractItemDelegate.NoHint:
+        elif hint == QAbstractItemDelegate.EndEditHint.NoHint:
             if self._renaming_item is not None and self._renaming_item.isEditable():
                 self._renaming_item.setEditable(False)
 

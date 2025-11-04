@@ -9,7 +9,12 @@ from threading import Lock
 from typing import ClassVar, List, Optional, Sequence
 
 from MuseLog.config_paths import get_config_file
+import enum
 
+# 定义 NodeType 枚举
+class NodeType(enum.Enum):
+    FOLDER = "folder"
+    LEAF = "leaf"
 
 @dataclass(slots=True)
 class FavoriteNode:
@@ -17,6 +22,7 @@ class FavoriteNode:
     name: str
     path: str
     created_at: float
+    node_type: NodeType
     children: List["FavoriteNode"] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -25,6 +31,7 @@ class FavoriteNode:
             "name": self.name,
             "path": self.path,
             "created_at": self.created_at,
+            "node_type": self.node_type.value,
             "children": [child.to_dict() for child in self.children],
         }
 
@@ -40,13 +47,18 @@ class FavoriteNode:
         name = str(data.get("name", ""))
         path = str(data.get("path", ""))
         created_at = float(data.get("created_at", time.time()))
+        node_type_str = str(data.get("node_type", "folder"))
+        try:
+            node_type = NodeType(node_type_str)
+        except ValueError:
+            node_type = NodeType.FOLDER
         children_data = data.get("children", [])
         children: List[FavoriteNode] = []
         if isinstance(children_data, list):
             for child in children_data:
                 if isinstance(child, dict):
                     children.append(cls.from_dict(child))
-        return cls(node_id=node_id, name=name, path=path, created_at=created_at, children=children)
+        return cls(node_id=node_id, name=name, path=path, created_at=created_at, node_type=node_type, children=children)
 
 
 class FavoritesStore:
@@ -65,7 +77,7 @@ class FavoritesStore:
         if getattr(self, "_initialized", False):
             return
         self.file_path = get_config_file(self.filename)
-        self._root: FavoriteNode = FavoriteNode(0, "收藏夹", "", time.time())
+        self._root: FavoriteNode = FavoriteNode(0, "收藏夹", "", time.time(), NodeType.FOLDER)
         self._next_id: int = 1
         self._load_data()
         self._initialized = True
@@ -159,6 +171,7 @@ class FavoritesStore:
                 node_id=self._next_id,
                 name=name,
                 path="",
+                node_type=NodeType.FOLDER,
                 created_at=time.time(),
             )
             self._next_id += 1
@@ -240,6 +253,7 @@ class FavoritesStore:
                 node_id=self._next_id,
                 name=name,
                 path=path,
+                node_type=NodeType.LEAF,
                 created_at=time.time(),
             )
             self._next_id += 1
