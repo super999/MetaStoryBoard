@@ -23,7 +23,8 @@ from MuseLog.explorer.navigation_mixin import NavigationMixin
 from MuseLog.explorer.persistence_mixin import PersistenceMixin
 from MuseLog.explorer_custom_widgets import resolve_custom_widget_builder
 from MuseLog.explorer_signals import signal_manager
-from MuseLog.favorites_store import FavoriteNode, FavoritesStore
+from MuseLog.favorites_store import FavoritesStore
+from MuseLog.model.node import FavoriteNode
 from MuseLog.ui.ui_tab_explorer import Ui_TabExplorer
 from MuseLog.widget_video_detail import VideoDetailWidget
 

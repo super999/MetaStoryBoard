@@ -5,7 +5,9 @@ from typing import Optional
 from pathlib import Path
 import os
 from MuseLog.ui.ui_dialog_favorites_new_folders import Ui_DialogFavoritesNewFolder
-from MuseLog.favorites_store import FavoriteNode, FavoritesStore
+from MuseLog.favorites_store import FavoritesStore
+from MuseLog.model.node import FavoriteNode
+
 
 class DialogFavoritesNewFolder(QDialog):
     """

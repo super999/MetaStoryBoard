@@ -18,7 +18,8 @@ from PySide6.QtWidgets import (
 )
 
 from MuseLog.favorites_new_folder_dialog import DialogFavoritesNewFolder
-from MuseLog.favorites_store import FavoriteNode, FavoritesStore
+from MuseLog.favorites_store import FavoritesStore
+from MuseLog.model.node import FavoriteNode, NodeType
 from MuseLog.ui.ui_tab_favorites import Ui_TabFavorites
 
 
@@ -113,7 +114,7 @@ class TabFavoritesWidget(QWidget):
         self._tree_model.setHorizontalHeaderLabels(["收藏夹"])
         self._item_index = {}
 
-        self._build_tree_items(self._root, None)
+        self._build_tree_items(self._root, None, NodeType.FOLDER)
         self.ui.treeView.expandAll()
 
         target_item = self._item_index.get(target_node_id) or self._item_index.get(self._root.node_id)
@@ -128,7 +129,10 @@ class TabFavoritesWidget(QWidget):
             self._current_node_id = self._root.node_id
         self._display_children(self._current_node_id)
 
-    def _build_tree_items(self, node: FavoriteNode, parent_item: Optional[QStandardItem]) -> None:
+    def _build_tree_items(self, node: FavoriteNode, parent_item: Optional[QStandardItem], filter_node_type: NodeType) -> None:
+        if node.node_type != filter_node_type:
+            return
+        
         item = QStandardItem(node.name or "(未命名)")
         item.setEditable(False)
         item.setToolTip(node.path or node.name or "")
@@ -141,7 +145,7 @@ class TabFavoritesWidget(QWidget):
             parent_item.appendRow(item)
 
         for child in node.children:
-            self._build_tree_items(child, item)
+            self._build_tree_items(child, item, filter_node_type)
 
     def _apply_filter_to_list(self) -> None:
         self._cancel_rename()
@@ -159,8 +163,11 @@ class TabFavoritesWidget(QWidget):
 
             item = QStandardItem(node.name or "(未命名)")
             item.setEditable(False)
-            item.setIcon(style.standardIcon(QStyle.SP_DirIcon))
-            item.setData(node.node_id, Qt.UserRole)
+            if node.node_type == NodeType.FOLDER:
+                item.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DirIcon))
+            else:
+                item.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_FileLinkIcon))
+            item.setData(node.node_id, Qt.ItemDataRole.UserRole)
             item.setToolTip(node.path or "")
             self._list_model.appendRow(item)
             rows_added += 1
@@ -295,6 +302,8 @@ class TabFavoritesWidget(QWidget):
     def _display_children(self, node_id: int) -> None:
         node = self._node_index.get(node_id)
         self._current_children = list(node.children) if node else []
+        # 只过滤显示 folder 节点
+        # self._current_children = [child for child in node.children if child.node_type == NodeType.FOLDER] if node else []
         self._apply_filter_to_list()
 
     def _find_parent_id(self, node_id: int) -> Optional[int]:
