@@ -24,10 +24,11 @@ from PySide6.QtWidgets import (
 )
 
 from MuseLog.favorites_new_folder_dialog import DialogFavoritesNewFolder
+from MuseLog.favorites_rename_folder_dialog import DialogFavoritesRenameFolder
 from MuseLog.favorites_store import FavoritesStore
 from MuseLog.model.node import FavoriteNode, NodeType
 from MuseLog.ui.ui_tab_favorites import Ui_TabFavorites
-
+from datetime import datetime
 
 class TabFavoritesWidget(QWidget):
     """Favorites manager supporting nested folders and quick navigation."""
@@ -311,8 +312,8 @@ class TabFavoritesWidget(QWidget):
     def _display_children(self, node_id: int) -> None:
         node = self._node_index.get(node_id)
         self._current_children = list(node.children) if node else []
-        # 只过滤显示 folder 节点
-        # self._current_children = [child for child in node.children if child.node_type == NodeType.FOLDER] if node else []
+        # 对 self._current_children 进行排序，文件夹在前，按ID降序排列
+        self._current_children.sort(key=lambda n: (n.node_type != NodeType.FOLDER, -n.node_id))
         self._apply_filter_to_list()
 
     def _find_parent_id(self, node_id: int) -> Optional[int]:
@@ -346,6 +347,18 @@ class TabFavoritesWidget(QWidget):
         self._refresh_tree()
         if not silent:
             QMessageBox.information(self, "已移除", "收藏已移除。")
+
+
+    def _rename_list_item_node(self, node: FavoriteNode) -> None:
+        if node is None:
+            return
+
+        # 弹出重命名编辑框
+        dialog = DialogFavoritesRenameFolder(self, folder_path=node.name, node=node)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._reload_from_store()
+            self._refresh_tree()
+        
 
     def _rename_node(self, node_id: int) -> None:
         if node_id == self._root.node_id:
@@ -468,6 +481,11 @@ class TabFavoritesWidget(QWidget):
         style = self.style()
 
         if node.path:
+            label_created = QLabel(container)
+            create_time = datetime.fromtimestamp(node.created_at).strftime("%Y-%m-%d %H:%M:%S")
+            label_created.setText(f"{create_time}")
+            layout.addWidget(label_created)
+
             btn_open = QToolButton(container)
             btn_open.setAutoRaise(True)
             btn_open.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton))
@@ -486,7 +504,7 @@ class TabFavoritesWidget(QWidget):
         btn_rename.setAutoRaise(True)
         btn_rename.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView))
         btn_rename.setToolTip("重命名")
-        btn_rename.clicked.connect(partial(self._handle_rename_clicked, node.node_id))
+        btn_rename.clicked.connect(partial(self._handle_rename_list_item_clicked, node.node_id))
         layout.addWidget(btn_rename)
 
         btn_remove = QToolButton(container)
@@ -508,6 +526,10 @@ class TabFavoritesWidget(QWidget):
         node = self._node_index.get(node_id)
         if node and node.path:
             self._reveal_in_explorer(node.path)
+
+    def _handle_rename_list_item_clicked(self, node_id: int) -> None:
+        node: FavoriteNode = self._node_index.get(node_id)
+        self._rename_list_item_node(node)
 
     def _handle_rename_clicked(self, node_id: int) -> None:
         self._rename_node(node_id)
@@ -535,6 +557,62 @@ class TabFavoritesWidget(QWidget):
         except Exception as exc:
             logging.exception("打开路径失败: %s", path)
             QMessageBox.warning(self, "打开失败", f"无法打开：\n{path}\n{exc}")
+
+    def _open_in_editor(self, path: str) -> None:
+        if not path:
+            return
+
+        normalized_path = os.path.normpath(path)
+        if os.path.isfile(normalized_path):
+            normalized_path = os.path.dirname(normalized_path)
+
+        if not os.path.isdir(normalized_path):
+            QMessageBox.warning(self, "打开失败", f"目录不存在：\n{normalized_path}")
+            return
+
+        main_window = self.window()
+        # Walk up until we find an object exposing open_explorer_tab (main window).
+        while main_window and not hasattr(main_window, "open_explorer_tab"):
+            main_window = main_window.parent()
+
+        if main_window is None or not hasattr(main_window, "open_explorer_tab"):
+            logging.warning("未找到主窗口，回退到系统资源管理器。")
+            self._open_in_system(normalized_path)
+            return
+
+        try:
+            main_window.open_explorer_tab()  # type: ignore[call-arg]
+        except Exception as exc:
+            logging.exception("切换资源浏览页失败: %s", exc)
+            QMessageBox.warning(self, "打开失败", "无法切换到资源浏览页。")
+            return
+
+        explorer_widget = None
+        tab_widget = getattr(main_window, "tabWidget", None)
+        if tab_widget is not None:
+            explorer_widget = tab_widget.currentWidget()
+            if not hasattr(explorer_widget, "navigate_to_path"):
+                explorer_widget = None
+
+        if explorer_widget is None:
+            opened_tabs = getattr(main_window, "opened_tabs", {})
+            explorer_index = opened_tabs.get("explorer") if isinstance(opened_tabs, dict) else None
+            if tab_widget is not None and explorer_index is not None and 0 <= explorer_index < tab_widget.count():
+                candidate = tab_widget.widget(explorer_index)
+                if hasattr(candidate, "navigate_to_path"):
+                    explorer_widget = candidate
+
+        if explorer_widget is None:
+            logging.warning("未获得资源浏览控件实例，回退到系统资源管理器。")
+            self._open_in_system(normalized_path)
+            return
+
+        try:
+            explorer_widget.navigate_to_path(normalized_path)  # type: ignore[attr-defined]
+        except Exception as exc:
+            logging.exception("资源浏览页导航失败: %s", exc)
+            QMessageBox.warning(self, "打开失败", f"无法在资源浏览页打开：\n{normalized_path}\n{exc}")
+            return
 
     def _reveal_in_explorer(self, path: str) -> None:
         try:
