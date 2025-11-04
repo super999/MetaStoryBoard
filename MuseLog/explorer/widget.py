@@ -230,6 +230,17 @@ class TabExplorerWidget(
             except Exception as exc:
                 QMessageBox.warning(self, "打开文件夹失败", f"无法打开文件夹：\n{folder_path}\n错误：{exc}", QMessageBox.Ok)
             return
+        if op_type == "参考图元数据":
+            image_path = str(op_data)
+            logging.info("显示参考图元数据: %s", image_path)
+            try:
+                if os.path.isfile(image_path):
+                    os.startfile(image_path)  # type: ignore[attr-defined]
+                else:
+                    QMessageBox.warning(self, "文件不存在", f"文件不存在：\n{image_path}", QMessageBox.Ok)
+            except Exception as exc:
+                QMessageBox.warning(self, "读取文件失败", f"无法读取文件：\n{image_path}\n错误：{exc}", QMessageBox.Ok)
+            return
         logging.debug("未处理的元数据操作类型: %s", op_type)
 
     # ------------------------------------------------------------------

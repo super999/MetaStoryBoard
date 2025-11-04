@@ -44,6 +44,11 @@ class Ui_MainWindow(object):
 
         self.verticalLayout.addWidget(self.btnExplorer)
 
+        self.btnVideoGen = QPushButton(self.navWidget)
+        self.btnVideoGen.setObjectName(u"btnVideoGen")
+
+        self.verticalLayout.addWidget(self.btnVideoGen)
+
         self.btnFavorites = QPushButton(self.navWidget)
         self.btnFavorites.setObjectName(u"btnFavorites")
 
@@ -84,6 +89,7 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"\u7075\u7ed8\u56fe\u5377 -\u5143\u6570\u636e\u8bb0\u5f55\u4e0e\u6d4f\u89c8\u5de5\u5177", None))
         self.btnHome.setText(QCoreApplication.translate("MainWindow", u"\u9996\u9875", None))
         self.btnExplorer.setText(QCoreApplication.translate("MainWindow", u"\u8d44\u6e90\u6d4f\u89c8", None))
+        self.btnVideoGen.setText(QCoreApplication.translate("MainWindow", u"\u89c6\u9891\u751f\u6210", None))
         self.btnFavorites.setText(QCoreApplication.translate("MainWindow", u"\u6536\u85cf\u5939", None))
         self.btnSettings.setText(QCoreApplication.translate("MainWindow", u"\u8bbe\u7f6e", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab1), QCoreApplication.translate("MainWindow", u"Tab 1", None))

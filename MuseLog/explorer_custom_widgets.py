@@ -22,6 +22,7 @@ CustomWidgetBuilder = Callable[[QWidget, str, Dict[str, Any]], Sequence[QWidget]
 
 VIDEO_FOLDER_NAME = "视频"
 SEQUENCE_FOLDER_NAME = "序列帧"
+REF_FOLDER_NAME = "参考图"
 SPINE_FOLDER_NAME = "spine"
 SPINE_EXPORT_FOLDER_NAME = "spine-导出"
 JSON42_FOLDER_NAME = "json42"
@@ -55,6 +56,8 @@ def resolve_custom_widget_builder(folder: str, meta: Dict[str, Any]) -> Optional
         return build_sequence_frames_widgets
     if parent_dir_name == VIDEO_FOLDER_NAME:
         return build_video_modify_widgets
+    if parent_dir_name == REF_FOLDER_NAME:
+        return build_reference_drawings_widgets
     if folder_name_lower == SPINE_FOLDER_NAME:
         return build_spine_widgets
     if folder_name_lower == VIDEO_FOLDER_NAME:
@@ -422,6 +425,13 @@ def build_video_widgets(container: QWidget, full_folder: str, meta: Dict[str, An
     btn_create_placeholder = QPushButton("创建视频占位符文件夹", container)
     btn_create_placeholder.clicked.connect(create_video_placeholder)
     return [btn_create_placeholder, _make_spacer(container)]
+
+
+def build_reference_drawings_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
+    ref_path = Path(full_folder)
+    # 编辑参考图文件夹的名称
+    return [_make_spacer(container)]
+
 
 __all__ = [
     "CustomWidgetBuilder",

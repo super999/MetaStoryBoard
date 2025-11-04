@@ -27,7 +27,7 @@ class TabBatchResizeWidget(QWidget):
         # 状态
         self.image_paths = []
         self.ui.labelStatus.setText("状态：等待操作")
-        # 加载��认路径
+        # 加载默认路径
         self.load_default_paths()
 
     def select_input_folder(self):

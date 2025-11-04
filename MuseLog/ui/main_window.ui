@@ -45,6 +45,13 @@
         </widget>
        </item>
        <item>
+        <widget class="QPushButton" name="btnVideoGen">
+         <property name="text">
+          <string>视频生成</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QPushButton" name="btnFavorites">
          <property name="text">
           <string>收藏夹</string>

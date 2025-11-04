@@ -352,13 +352,11 @@ class TabFavoritesWidget(QWidget):
     def _rename_list_item_node(self, node: FavoriteNode) -> None:
         if node is None:
             return
-
         # 弹出重命名编辑框
         dialog = DialogFavoritesRenameFolder(self, folder_path=node.name, node=node)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._reload_from_store()
-            self._refresh_tree()
-        
+            self._refresh_tree()        
 
     def _rename_node(self, node_id: int) -> None:
         if node_id == self._root.node_id:
@@ -394,7 +392,6 @@ class TabFavoritesWidget(QWidget):
     def _cancel_rename(self) -> None:
         if self._renaming_item is None:
             return
-
         model = self._renaming_model or self._tree_model
         was_blocked = model.signalsBlocked()
         model.blockSignals(True)
@@ -412,17 +409,14 @@ class TabFavoritesWidget(QWidget):
     def _handle_item_renamed(self, item: QStandardItem) -> None:
         if self._renaming_node_id is None or item is not self._renaming_item:
             return
-
         new_name = item.text().strip()
         if not new_name:
             QMessageBox.warning(self, "重命名失败", "收藏名称不能为空。")
             self._cancel_rename()
             return
-
         if new_name == self._renaming_original_name:
             self._cancel_rename()
             return
-
         parent_id = self._find_parent_id(self._renaming_node_id) or self._root.node_id
         parent_node = self._node_index.get(parent_id)
         if parent_node:
@@ -431,7 +425,6 @@ class TabFavoritesWidget(QWidget):
                     QMessageBox.warning(self, "重命名失败", "同一层级中已存在相同名称。")
                     self._cancel_rename()
                     return
-
         try:
             self._store.rename_node(self._renaming_node_id, new_name)
         except ValueError as exc:
@@ -535,7 +528,7 @@ class TabFavoritesWidget(QWidget):
         self._rename_node(node_id)
 
     def _handle_remove_clicked(self, node_id: int) -> None:
-        self._remove_node(node_id)
+        self._remove_node(node_id, silent=True)
 
     def _on_editor_closed(self, _editor: QWidget, hint: QAbstractItemDelegate.EndEditHint) -> None:
         if self._renaming_node_id is None:

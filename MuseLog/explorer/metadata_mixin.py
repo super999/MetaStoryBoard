@@ -13,7 +13,7 @@ from MuseLog.explorer.meta import MetaStruct
 class MetadataMixin:
     """Collects directory metadata and populates the table."""
 
-    _auto_trigger_ops: Set[str] = {"视频元数据"}
+    _auto_trigger_ops: Set[str] = {"视频元数据", "参考图元数据"}
 
     def _init_metadata_state(self) -> None:
         self._table_row_meta: List[MetaStruct] = []
@@ -83,8 +83,9 @@ class MetadataMixin:
         images = self._list_files(folder, {".png", ".jpg", ".jpeg", ".bmp", ".gif"})
         for image_path in images:
             lower_name = os.path.basename(image_path).lower()
-            if "ref" in lower_name or "reference" in lower_name:
-                refs.append(image_path)
+            # if "ref" in lower_name or "reference" in lower_name:
+            # 不必判断是否以 ref 或 reference 命名，所有图片都作为参考图
+            refs.append(image_path)
         ref_dir = os.path.join(folder, "ref")
         if os.path.isdir(ref_dir):
             refs.extend(self._list_files(ref_dir, {".png", ".jpg", ".jpeg", ".bmp", ".gif"}))
@@ -92,8 +93,14 @@ class MetadataMixin:
             preview = ", ".join(os.path.basename(item) for item in refs[:20])
             if len(refs) > 20:
                 preview += " ..."
-            meta["参考图"] = MetaStruct("参考图", preview)
-
+            count = 0
+            for item in refs:
+                if count >= 20:
+                    break
+                preview += f"\n  - {os.path.basename(item)}"
+                key_name = f"参考图_{count}"
+                meta[key_name] = MetaStruct(os.path.basename(item), op_type="参考图元数据", op_name="元数据", op_data=item)
+                count += 1
         return meta
 
     def on_table_cell_activated(self, row: int, column: int) -> None:
