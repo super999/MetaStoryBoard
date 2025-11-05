@@ -3,7 +3,7 @@ import time
 # 通过 pip install 'volcengine-python-sdk[ark]' 安装方舟SDK
 from volcenginesdkarkruntime import Ark
 from dotenv import load_dotenv
-
+import json
 
 load_dotenv()
 
@@ -23,6 +23,14 @@ client = Ark(
 
 if __name__ == "__main__":
     print("----- create request -----")
+    
+    # 读取 prompt_params.json 中的 image_url 参数
+    with open("prompt_params.json", "r", encoding="utf-8") as f:
+        prompt_params = json.load(f)
+        image_url = prompt_params.get("image_url", {}).get("url")
+    if not image_url:
+        raise RuntimeError("prompt_params.json 中缺少 image_url 参数。")
+    
     create_result = client.content_generation.tasks.create(
         model="doubao-seedance-1-0-pro-250528", # 模型 Model ID 已为您填入
         content=[
@@ -34,9 +42,7 @@ if __name__ == "__main__":
             { # 若仅需使用文本生成视频功能，可对该大括号内的内容进行注释处理，并删除上一行中大括号后的逗号。
                 # 首帧图片URL
                 "type": "image_url",
-                "image_url": {
-                    "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_i2v.png" 
-                }
+                "image_url": image_url
             }
         ]
     )
