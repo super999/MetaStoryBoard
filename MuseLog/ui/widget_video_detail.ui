@@ -59,6 +59,13 @@
        </spacer>
       </item>
       <item>
+       <widget class="QPushButton" name="playButton">
+        <property name="text">
+         <string>播放</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="closeButton">
         <property name="text">
          <string>关闭</string>

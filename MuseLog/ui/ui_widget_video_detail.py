@@ -42,6 +42,11 @@ class Ui_Form(object):
 
         self.horizontalLayout_2.addItem(self.horizontalSpacer_2)
 
+        self.playButton = QPushButton(self.widget_2)
+        self.playButton.setObjectName(u"playButton")
+
+        self.horizontalLayout_2.addWidget(self.playButton)
+
         self.closeButton = QPushButton(self.widget_2)
         self.closeButton.setObjectName(u"closeButton")
 
@@ -123,6 +128,7 @@ class Ui_Form(object):
     def retranslateUi(self, Form):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
         self.label.setText(QCoreApplication.translate("Form", u"\u63d0\u793a\u8bcd", None))
+        self.playButton.setText(QCoreApplication.translate("Form", u"\u64ad\u653e", None))
         self.closeButton.setText(QCoreApplication.translate("Form", u"\u5173\u95ed", None))
         self.label_3.setText(QCoreApplication.translate("Form", u"\u53c2\u8003\u6a21\u578b", None))
         self.label_2.setText(QCoreApplication.translate("Form", u"\u53c2\u8003\u56fe", None))

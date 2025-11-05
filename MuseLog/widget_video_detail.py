@@ -46,6 +46,7 @@ class VideoDetailWidget(QWidget):
         self.ui.saveButton.clicked.connect(self._on_save_clicked)
         self.ui.cancelButton.clicked.connect(self._on_cancel_clicked)
         self.ui.closeButton.clicked.connect(self._on_notify_close)
+        self.ui.playButton.clicked.connect(self._on_play_video_clicked)
 
         self._set_buttons_enabled(False)
 
@@ -169,6 +170,22 @@ class VideoDetailWidget(QWidget):
 
     def _on_notify_close(self) -> None:
         self.notify_close.emit()
+    
+    def _on_play_video_clicked(self) -> None:
+        if not self._video_path or not os.path.isfile(self._video_path):
+            QMessageBox.warning(self, "播放失败", "视频文件不存在，无法播放。", QMessageBox.Ok)
+            return
+        try:
+            if os.name == 'nt':  # Windows
+                os.startfile(self._video_path)
+            elif os.name == 'posix':  # macOS or Linux
+                import subprocess
+                opener = "open" if sys.platform == "darwin" else "xdg-open"
+                subprocess.call([opener, self._video_path])
+            else:
+                QMessageBox.warning(self, "播放失败", "当前操作系统不支持自动播放视频。", QMessageBox.Ok)
+        except Exception as exc:
+            QMessageBox.critical(self, "播放失败", f"无法打开视频文件：\n{exc}")
     
     # ---------------------- 元数据维护 ----------------------
     def _default_metadata_path(self, video_path: str) -> str:
