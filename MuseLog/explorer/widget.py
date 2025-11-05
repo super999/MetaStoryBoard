@@ -67,9 +67,10 @@ class TabExplorerWidget(
         self._update_nav_buttons()
 
         self._config_file = self._init_config_path()
-        last_path = self._load_last_path()
-
-        start_candidates = [last_path, default_path, QDir.homePath()]
+        last_path_params = self._load_last_path_params()
+        enter_last_path = last_path_params.enter_last_path
+        select_last_path = last_path_params.select_last_path
+        start_candidates = [enter_last_path, default_path, QDir.homePath()]
         chosen_path: Optional[str] = None
         for candidate in start_candidates:
             if candidate and os.path.isdir(candidate):
@@ -78,6 +79,8 @@ class TabExplorerWidget(
         if not chosen_path:
             chosen_path = QDir.homePath()
         self.navigate_to_path(chosen_path)
+        self._select_last_path_in_tree(select_last_path)
+        
 
     # ------------------------------------------------------------------
     # UI wiring
@@ -86,6 +89,7 @@ class TabExplorerWidget(
         self.ui.btnEnter.clicked.connect(self.on_enter_clicked)
         self.ui.lineAddress.returnPressed.connect(self.on_enter_clicked)
         self.ui.treeView.selectionModel().selectionChanged.connect(self.on_tree_selection_changed)
+        self.ui.treeView.doubleClicked.connect(self.on_tree_item_double_clicked)
         self.ui.tableMeta.cellClicked.connect(self.on_table_cell_activated)
 
         self.ui.treeView.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -183,8 +187,8 @@ class TabExplorerWidget(
         normalized_removed = self._normalize_path(normalized_path)
         self._history = [path for path in self._history if self._normalize_path(path) != normalized_removed]
 
-        if self._normalize_path(self._current_path) == normalized_removed:
-            self._current_path = None
+        if self._normalize_path(self._current_enter_path) == normalized_removed:
+            self._current_enter_path = None
             self._clear_detail_widget()
 
         target_dir = parent_dir if os.path.isdir(parent_dir) else self._find_existing_parent(parent_dir)
@@ -248,7 +252,7 @@ class TabExplorerWidget(
     # ------------------------------------------------------------------
     def _update_nav_buttons(self) -> None:
         self.ui.btnBack.setEnabled(bool(self._history))
-        current = self._current_path
+        current = self._current_enter_path
         current_exists = bool(current and os.path.isdir(current))
         can_go_up = False
         if current_exists:
@@ -299,23 +303,23 @@ class TabExplorerWidget(
     # Signal callbacks
     # ------------------------------------------------------------------
     def on_delete_selected_animation_sequence(self) -> None:
-        logging.info("删除选中的动画序列, 当前选中路径: %s", self._current_path)
-        if not self._current_path:
+        logging.info("删除选中的动画序列, 当前选中路径: %s", self._current_enter_path)
+        if not self._current_enter_path:
             return
         try:
-            if os.path.isdir(self._current_path):
+            if os.path.isdir(self._current_enter_path):
                 import shutil
 
-                shutil.rmtree(self._current_path)
-                logging.info("已删除目录: %s", self._current_path)
-                parent_dir = os.path.dirname(self._current_path)
+                shutil.rmtree(self._current_enter_path)
+                logging.info("已删除目录: %s", self._current_enter_path)
+                parent_dir = os.path.dirname(self._current_enter_path)
                 self.navigate_to_path(parent_dir, add_history=False)
         except Exception as exc:
-            logging.error("删除目录失败: %s, 错误: %s", self._current_path, exc)
+            logging.error("删除目录失败: %s, 错误: %s", self._current_enter_path, exc)
 
     def on_update_animation_sequence(self, old_folder_name: str, new_folder_name: str) -> None:
         logging.info("重命名动画序列文件夹: %s -> %s", old_folder_name, new_folder_name)
-        if not self._current_path:
+        if not self._current_enter_path:
             return
         try:
             os.rename(old_folder_name, new_folder_name)

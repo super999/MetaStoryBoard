@@ -176,6 +176,7 @@ class Ui_TabExplorer(object):
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.label = QLabel(self.bottomPanel)
         self.label.setObjectName(u"label")
+        self.label.setMinimumSize(QSize(50, 0))
         self.label.setMaximumSize(QSize(100, 16777215))
 
         self.horizontalLayout_2.addWidget(self.label)
