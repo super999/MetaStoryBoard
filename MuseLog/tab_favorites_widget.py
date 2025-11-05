@@ -574,37 +574,13 @@ class TabFavoritesWidget(QWidget):
             return
 
         try:
-            main_window.open_explorer_tab()  # type: ignore[call-arg]
+            main_window.open_explorer_tab(
+                default_path=normalized_path,
+                select_path=normalized_path,
+            )
         except Exception as exc:
-            logging.exception("切换资源浏览页失败: %s", exc)
-            QMessageBox.warning(self, "打开失败", "无法切换到资源浏览页。")
-            return
-
-        explorer_widget = None
-        tab_widget = getattr(main_window, "tabWidget", None)
-        if tab_widget is not None:
-            explorer_widget = tab_widget.currentWidget()
-            if not hasattr(explorer_widget, "navigate_to_path"):
-                explorer_widget = None
-
-        if explorer_widget is None:
-            opened_tabs = getattr(main_window, "opened_tabs", {})
-            explorer_index = opened_tabs.get("explorer") if isinstance(opened_tabs, dict) else None
-            if tab_widget is not None and explorer_index is not None and 0 <= explorer_index < tab_widget.count():
-                candidate = tab_widget.widget(explorer_index)
-                if hasattr(candidate, "navigate_to_path"):
-                    explorer_widget = candidate
-
-        if explorer_widget is None:
-            logging.warning("未获得资源浏览控件实例，回退到系统资源管理器。")
-            self._open_in_system(normalized_path)
-            return
-
-        try:
-            explorer_widget.navigate_to_path(normalized_path)  # type: ignore[attr-defined]
-        except Exception as exc:
-            logging.exception("资源浏览页导航失败: %s", exc)
-            QMessageBox.warning(self, "打开失败", f"无法在资源浏览页打开：\n{normalized_path}\n{exc}")
+            logging.exception("打开资源浏览页失败: %s", exc)
+            QMessageBox.warning(self, "打开失败", "无法打开新的资源浏览页。")
             return
 
     def _reveal_in_explorer(self, path: str) -> None:

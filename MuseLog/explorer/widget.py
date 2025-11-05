@@ -38,10 +38,19 @@ class TabExplorerWidget(
 ):
     """Explorer-style tab with navigation, metadata, and custom widgets."""
 
-    def __init__(self, parent: Optional[QWidget] = None, default_path: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        tab_id: str,
+        *,
+        parent: Optional[QWidget] = None,
+        default_path: Optional[str] = None,
+        default_select_path: Optional[str] = None,
+    ) -> None:
         super().__init__(parent)
         self.ui = Ui_TabExplorer()
         self.ui.setupUi(self)
+
+        self.tab_id = tab_id
 
         self.model = QFileSystemModel(self)
         self.model.setFilter(QDir.Dirs | QDir.NoDotAndDotDot)
@@ -67,9 +76,14 @@ class TabExplorerWidget(
         self._update_nav_buttons()
 
         self._config_file = self._init_config_path()
-        last_path_params = self._load_last_path_params()
+        last_path_params = self._load_last_path_params(
+            tab_id,
+            default_enter_path=default_path,
+            default_select_path=default_select_path,
+        )
         enter_last_path = last_path_params.enter_last_path
         select_last_path = last_path_params.select_last_path
+
         start_candidates = [enter_last_path, default_path, QDir.homePath()]
         chosen_path: Optional[str] = None
         for candidate in start_candidates:
