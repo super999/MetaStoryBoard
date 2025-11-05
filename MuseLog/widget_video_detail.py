@@ -40,6 +40,7 @@ class VideoDetailWidget(QWidget):
         self.ui.textEdit.setPlaceholderText("填写或查看该视频的提示词内容")
 
         self._reference_combo: QComboBox = self._setup_reference_combo()
+        self._setup_reference_model()
 
         self.ui.textEdit.textChanged.connect(self._on_prompt_changed)
         self.ui.saveButton.clicked.connect(self._on_save_clicked)
@@ -82,6 +83,16 @@ class VideoDetailWidget(QWidget):
 
         return combo
 
+    def _setup_reference_model(self) -> None:
+        model_list = [
+            "未选择",
+            "Doubao-Seedance-1.0-pro-fast 251015",
+            "Doubao-Seedance-1.0-pro-250528",
+            "wan2.2 i2v",
+            "豆包"            
+        ]
+        self.ui.comboRefModel.addItems(model_list)
+
     # ---------------------- 对外接口 ----------------------
     def set_video(self, video_path: str) -> None:
         """绑定视频文件，读取并展示其关联元数据。"""
@@ -113,6 +124,7 @@ class VideoDetailWidget(QWidget):
             entry = {"prompt": str(entry)} if entry is not None else {}
 
         entry.setdefault("video_path", self._video_path)
+        entry.setdefault("model", "未选择")
 
         self._initial_entry = deepcopy(entry)
         self._apply_metadata(entry)
@@ -123,6 +135,7 @@ class VideoDetailWidget(QWidget):
             return
         prompt = self.ui.textEdit.toPlainText().strip()
         reference = self._reference_combo.currentText().strip()
+        model = self.ui.comboRefModel.currentText().strip()
 
         entry = deepcopy(self._all_metadata.get(self._metadata_key, {}))
         if not isinstance(entry, dict):
@@ -131,6 +144,7 @@ class VideoDetailWidget(QWidget):
         entry.update({
             "video_path": self._video_path,
             "prompt": prompt,
+            "model": model,
         })
 
         if reference:
@@ -205,6 +219,7 @@ class VideoDetailWidget(QWidget):
     def _apply_metadata(self, metadata: Dict[str, Any]) -> None:
         prompt = metadata.get("prompt") or ""
         reference = metadata.get("reference") or ""
+        model = metadata.get("model") or "未选择"
         self.ui.textEdit.blockSignals(True)
         self._reference_combo.blockSignals(True)
         reference_line = self._reference_combo.lineEdit()
@@ -218,7 +233,7 @@ class VideoDetailWidget(QWidget):
             reference_line.blockSignals(False)
         self._reference_combo.blockSignals(False)
         self.ui.textEdit.blockSignals(False)
-
+        self.ui.comboRefModel.setCurrentText(model)
         self._update_reference_label(reference)
         self._dirty = False
         self._refresh_title()

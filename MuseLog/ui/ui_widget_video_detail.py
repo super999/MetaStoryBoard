@@ -15,15 +15,15 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QSizePolicy, QSpacerItem, QTextEdit,
-    QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
+    QLineEdit, QPushButton, QSizePolicy, QSpacerItem,
+    QTextEdit, QVBoxLayout, QWidget)
 
 class Ui_Form(object):
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName(u"Form")
-        Form.resize(430, 258)
+        Form.resize(535, 313)
         self.verticalLayout = QVBoxLayout(Form)
         self.verticalLayout.setSpacing(1)
         self.verticalLayout.setObjectName(u"verticalLayout")
@@ -55,6 +55,28 @@ class Ui_Form(object):
         self.textEdit.setMaximumSize(QSize(16777215, 150))
 
         self.verticalLayout.addWidget(self.textEdit)
+
+        self.widget_3 = QWidget(Form)
+        self.widget_3.setObjectName(u"widget_3")
+        self.widget_3.setMaximumSize(QSize(16777215, 30))
+        self.horizontalLayout_3 = QHBoxLayout(self.widget_3)
+        self.horizontalLayout_3.setSpacing(4)
+        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.horizontalLayout_3.setContentsMargins(0, 0, 0, 0)
+        self.label_3 = QLabel(self.widget_3)
+        self.label_3.setObjectName(u"label_3")
+        self.label_3.setMaximumSize(QSize(80, 16777215))
+
+        self.horizontalLayout_3.addWidget(self.label_3)
+
+        self.comboRefModel = QComboBox(self.widget_3)
+        self.comboRefModel.setObjectName(u"comboRefModel")
+        self.comboRefModel.setMinimumSize(QSize(0, 30))
+
+        self.horizontalLayout_3.addWidget(self.comboRefModel)
+
+
+        self.verticalLayout.addWidget(self.widget_3)
 
         self.label_2 = QLabel(Form)
         self.label_2.setObjectName(u"label_2")
@@ -102,6 +124,7 @@ class Ui_Form(object):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
         self.label.setText(QCoreApplication.translate("Form", u"\u63d0\u793a\u8bcd", None))
         self.closeButton.setText(QCoreApplication.translate("Form", u"\u5173\u95ed", None))
+        self.label_3.setText(QCoreApplication.translate("Form", u"\u53c2\u8003\u6a21\u578b", None))
         self.label_2.setText(QCoreApplication.translate("Form", u"\u53c2\u8003\u56fe", None))
         self.saveButton.setText(QCoreApplication.translate("Form", u"\u4fdd\u5b58", None))
         self.cancelButton.setText(QCoreApplication.translate("Form", u"\u53d6\u6d88", None))
