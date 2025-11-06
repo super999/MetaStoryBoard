@@ -7,10 +7,11 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtWidgets import QMessageBox, QWidget, QToolTip
 
 from PySide6.QtCore import Qt, Signal
+from MuseLog.explorer_custom_widgets import _resolve_tab_id
 from MuseLog.ui.ui_widget_image_detail import Ui_Form
 from PySide6.QtGui import QPixmap, QResizeEvent
 from MuseLog.GTools.image_processor import ImageProcessor
-
+from MuseLog.explorer_signals import signal_manager
 
 class WidgetImageDetail(QWidget):
     # pySignals
@@ -73,6 +74,8 @@ class WidgetImageDetail(QWidget):
         target_path = os.path.join(os.path.dirname(self.image_path), target_name)
         self._image_processor.remove_background(self.image_path, target_path)
         QMessageBox.information(self, "完成", f"图片背景已去除，保存为: {target_name}", QMessageBox.Ok)
+        tab_id = _resolve_tab_id(self)
+        signal_manager.gui_fresh_tab_collect_metadata.emit(tab_id)
 
     def on_copy_path_clicked(self) -> None:
         if not self.image_path:
