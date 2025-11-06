@@ -45,6 +45,15 @@ SPINE_TEMPLATE_SOURCE = Path(r"D:\素材资源\spine角色\僵尸-模板\僵尸�
 GAME_MONSTER_BASE_PATH = Path(r"D:\cocos_workspace\oops-game-kit\assets\resources-spine\art-spine\monsters")
 IMAGES_KEEP_FOLDER = "preds-BiRefNet_resize"
 
+def _resolve_tab_id(widget: QWidget) -> Optional[str]:
+    current: Optional[QWidget] = widget
+    while current is not None:
+        tab_id = current.property("tab_id")
+        if isinstance(tab_id, str) and tab_id:
+            return tab_id
+        current = current.parent()
+    return None
+
 
 def resolve_custom_widget_builder(folder: str, meta: Dict[str, Any]) -> Optional[CustomWidgetBuilder]:
     """根据文件夹名称选择合适的自定义控件构建函数。"""
@@ -150,9 +159,13 @@ def _build_video_folder_name_by_type(parent: Path, animation_type: str) -> str:
         folder_name = f'{safe_animation_type}_{name_count}'
     return folder_name
 
-def _emit_rename_request(folder_path: Path, new_name: str) -> None:
+def _emit_rename_request(container: QWidget, folder_path: Path, new_name: str) -> None:
+    tab_id = _resolve_tab_id(container)
+    if not tab_id:
+        logging.debug("缺少 tab_id，无法发送重命名请求: %s", folder_path)
+        return
     new_path = folder_path.with_name(new_name)
-    signal_manager.rename_folder.emit(str(folder_path), str(new_path))
+    signal_manager.rename_folder.emit(tab_id, str(folder_path), str(new_path))
 
 
 def _make_spacer(container: QWidget) -> QWidget:
@@ -196,7 +209,7 @@ def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Di
             return
         frame_rate_value = new_rate
         new_name = _build_sequence_folder_name(frame_rate_value, animation_type_combo.currentText().strip())
-        _emit_rename_request(folder_path, new_name)
+        _emit_rename_request(container, folder_path, new_name)
 
     def on_modify_animation_type_clicked() -> None:
         nonlocal animation_type_value
@@ -208,7 +221,7 @@ def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Di
             return
         animation_type_value = new_type
         new_name = _build_sequence_folder_name(frame_rate_value, animation_type_value)
-        _emit_rename_request(folder_path, new_name)
+        _emit_rename_request(container, folder_path, new_name)
 
     btn_modify_frame_rate.clicked.connect(on_modify_frame_rate_clicked)
     btn_modify_animation_type.clicked.connect(on_modify_animation_type_clicked)
@@ -218,7 +231,11 @@ def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Di
     def on_delete_sequence_clicked() -> None:
         reply = QMessageBox.question(container, "确认删除", "确定要删除选中的动画吗？", QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            signal_manager.delete_selected_animation_sequence.emit()
+            tab_id = _resolve_tab_id(container)
+            if not tab_id:
+                logging.debug("缺少 tab_id，无法发送删除动画序列请求: %s", folder_path)
+                return
+            signal_manager.delete_selected_animation_sequence.emit(tab_id)
 
     btn_delete_sequence.clicked.connect(on_delete_sequence_clicked)
 
@@ -243,12 +260,22 @@ def build_video_modify_widgets(container: QWidget, full_folder: str, meta: Dict[
         animation_type_combo.addItem(animation_type)
     def on_modify_video_clicked() -> None:
         new_name = _build_video_folder_name_by_type(folder_path.parent, animation_type_combo.currentText().strip())
-        _emit_rename_request(folder_path, new_name)
+        _emit_rename_request(container, folder_path, new_name)
     btn_modify_video.clicked.connect(on_modify_video_clicked)
+    # 扫描并优化视频文件名称
+    btn_optimize_video = QPushButton("优化视频文件名称", container)
+    def on_optimize_video_clicked() -> None:
+        tab_id = _resolve_tab_id(container)
+        if not tab_id:
+            logging.debug("缺少 tab_id，无法发送优化视频名称请求: %s", folder_path)
+            return
+        signal_manager.optimize_video_filenames.emit(tab_id, str(folder_path))
+    btn_optimize_video.clicked.connect(on_optimize_video_clicked)
     return [
         btn_modify_video,
         label_info,
         animation_type_combo,
+        btn_optimize_video,
         _make_spacer(container),
     ]
 

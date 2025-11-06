@@ -101,6 +101,15 @@ class MetadataMixin:
                 key_name = f"参考图_{count}"
                 meta[key_name] = MetaStruct(os.path.basename(item), op_type="参考图元数据", op_name="元数据", op_data=item)
                 count += 1
+
+        archive_files = self._list_files(folder, {".zip", ".rar", ".7z", ".tar", ".gz"})
+        for index, archive in enumerate(archive_files):
+            meta[f"压缩文件_{index}"] = MetaStruct(
+                os.path.basename(archive),
+                op_type="解压缩文件",
+                op_name="解压",
+                op_data=archive,
+            )
         return meta
 
     def on_table_cell_activated(self, row: int, column: int) -> None:

@@ -15,6 +15,7 @@ class NavigationMixin:
     def _init_navigation_state(self) -> None:
         self._history: List[str] = []
         self._current_enter_path: Optional[str] = None
+        self._current_select_path: Optional[str] = None
         self._suppress_tree_selection: bool = False
 
     # Public slots ---------------------------------------------------------
@@ -76,7 +77,7 @@ class NavigationMixin:
             self.ui.treeView.scrollTo(model_index)
         finally:
             self._suppress_tree_selection = False
-
+        self._current_select_path = normalized_path
         self.ui.labelSelectPath.setText(normalized_path)
         # Mirror tree-click side effects so metadata and persistence stay in sync.
         self.show_directory_metadata(normalized_path)
@@ -94,6 +95,7 @@ class NavigationMixin:
             path = os.path.dirname(path)
         if not os.path.isdir(path):
             return
+        self._current_select_path = path
         self.ui.labelSelectPath.setText(path)
         self.show_directory_metadata(path)
         self._save_selected_last_path(path)

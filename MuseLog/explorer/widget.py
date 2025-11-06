@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 from typing import Optional
 
 from PySide6.QtCore import QDir, Qt
@@ -51,6 +52,8 @@ class TabExplorerWidget(
         self.ui.setupUi(self)
 
         self.tab_id = tab_id
+        self.setProperty("tab_id", tab_id)
+        self.ui.widget_custom_show.setProperty("tab_id", tab_id)
 
         self.model = QFileSystemModel(self)
         self.model.setFilter(QDir.Dirs | QDir.NoDotAndDotDot)
@@ -121,7 +124,7 @@ class TabExplorerWidget(
 
         signal_manager.delete_selected_animation_sequence.connect(self.on_delete_selected_animation_sequence)
         signal_manager.rename_folder.connect(self.on_update_animation_sequence)
-
+        signal_manager.optimize_video_filenames.connect(self.on_optimize_video_filenames)
     # ------------------------------------------------------------------
     # Context menu & actions
     # ------------------------------------------------------------------
@@ -205,10 +208,11 @@ class TabExplorerWidget(
             self._current_enter_path = None
             self._clear_detail_widget()
 
-        target_dir = parent_dir if os.path.isdir(parent_dir) else self._find_existing_parent(parent_dir)
-        if not target_dir:
-            target_dir = QDir.homePath()
-        self.navigate_to_path(target_dir, add_history=False)
+        # 删除文件后不跳转，保持在当前目录
+        # target_dir = parent_dir if os.path.isdir(parent_dir) else self._find_existing_parent(parent_dir)
+        #if not target_dir:
+        #    target_dir = QDir.homePath()
+        # self.navigate_to_path(target_dir, add_history=False)
 
     # ------------------------------------------------------------------
     # Custom widgets & metadata ops
@@ -258,6 +262,20 @@ class TabExplorerWidget(
                     QMessageBox.warning(self, "文件不存在", f"文件不存在：\n{image_path}", QMessageBox.Ok)
             except Exception as exc:
                 QMessageBox.warning(self, "读取文件失败", f"无法读取文件：\n{image_path}\n错误：{exc}", QMessageBox.Ok)
+            return
+        if op_type == "解压缩文件":
+            # 解压缩文件，到当前目录，并创建同名文件夹
+            archive_path = str(op_data)
+            logging.info("解压缩文件: %s", archive_path)
+            try:
+                if os.path.isfile(archive_path):
+                    extract_dir = os.path.splitext(archive_path)[0]
+                    shutil.unpack_archive(archive_path, extract_dir)
+                    QMessageBox.information(self, "解压完成", f"已解压到目录：\n{extract_dir}", QMessageBox.Ok)
+                else:
+                    QMessageBox.warning(self, "文件不存在", f"文件不存在：\n{archive_path}", QMessageBox.Ok)
+            except Exception as exc:
+                QMessageBox.warning(self, "解压失败", f"无法解压文件：\n{archive_path}\n错误：{exc}", QMessageBox.Ok)
             return
         logging.debug("未处理的元数据操作类型: %s", op_type)
 
@@ -316,7 +334,9 @@ class TabExplorerWidget(
     # ------------------------------------------------------------------
     # Signal callbacks
     # ------------------------------------------------------------------
-    def on_delete_selected_animation_sequence(self) -> None:
+    def on_delete_selected_animation_sequence(self, tab_id: str) -> None:
+        if tab_id != self.tab_id:
+            return
         logging.info("删除选中的动画序列, 当前选中路径: %s", self._current_enter_path)
         if not self._current_enter_path:
             return
@@ -327,22 +347,74 @@ class TabExplorerWidget(
                 shutil.rmtree(self._current_enter_path)
                 logging.info("已删除目录: %s", self._current_enter_path)
                 parent_dir = os.path.dirname(self._current_enter_path)
-                self.navigate_to_path(parent_dir, add_history=False)
+                self.navigate_to_path(self._current_enter_path, add_history=False)
+                self._select_last_path_in_tree(parent_dir)
         except Exception as exc:
             logging.error("删除目录失败: %s, 错误: %s", self._current_enter_path, exc)
 
-    def on_update_animation_sequence(self, old_folder_name: str, new_folder_name: str) -> None:
+    def on_update_animation_sequence(self, tab_id: str, old_folder_name: str, new_folder_name: str) -> None:
+        if tab_id != self.tab_id:
+            return
         logging.info("重命名动画序列文件夹: %s -> %s", old_folder_name, new_folder_name)
         if not self._current_enter_path:
             return
         try:
             os.rename(old_folder_name, new_folder_name)
             logging.info("已重命名目录: %s -> %s", old_folder_name, new_folder_name)
-            parent_dir = os.path.dirname(old_folder_name)
-            self.navigate_to_path(parent_dir, add_history=False)
-            logging.info("已导航到父目录: %s", parent_dir)
+            self.navigate_to_path(self._current_enter_path, add_history=False)
+            self._select_last_path_in_tree(new_folder_name)
         except Exception as exc:
             logging.error("重命名目录失败: %s -> %s, 错误: %s", old_folder_name, new_folder_name, exc)
+
+    def on_optimize_video_filenames(self, tab_id: str, folder_path: str) -> None:
+        if tab_id != self.tab_id:
+            return
+        logging.info("优化视频文件名称, 当前路径: %s", folder_path)
+        # 扫描目录下的视频文件
+        try:
+            video_files = []
+            for entry in os.listdir(folder_path):
+                full_path = os.path.join(folder_path, entry)
+                if os.path.isfile(full_path) and entry.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
+                    video_files.append(full_path)
+            # 检查 video_files 是否 格式如： 02176223943268800000000000000000000ffffac1473e7fe804b.mp4， 长度 为 48 或 52
+            # 建一个映射表 old_name -> new_name
+            rename_map = {}
+            for video_file in video_files:
+                base_name = os.path.basename(video_file)
+                name_part, ext_part = os.path.splitext(base_name)
+                if len(name_part) == 53 and all(c in '0123456789abcdef' for c in name_part.lower()):
+                    new_name = f'火山-{name_part[-4:]}{ext_part}'
+                    new_full_path = os.path.join(folder_path, new_name)
+                    rename_map[video_file] = new_full_path
+            # 打印重命名映射表
+            for old_name, new_name in rename_map.items():
+                logging.info("将视频文件重命名: %s -> %s", old_name, new_name)
+            if not rename_map:
+                logging.info("没有需要重命名的视频文件。")
+                return
+            # 读取 提示词文件
+            prompt_file_path = os.path.join(folder_path, '提示词.txt')
+            # 读取提示词文件内容，并对文件内的视频文件名进行替换
+            all_lines = []
+            if os.path.isfile(prompt_file_path):
+                with open(prompt_file_path, 'r', encoding='utf-8') as f:
+                    all_lines = f.readlines()
+                for i in range(len(all_lines)):
+                    for old_name, new_name in rename_map.items():
+                        old_base = os.path.basename(old_name)
+                        new_base = os.path.basename(new_name)
+                        if old_base in all_lines[i]:
+                            all_lines[i] = all_lines[i].replace(old_base, new_base)
+                with open(prompt_file_path, 'w', encoding='utf-8') as f:
+                    f.writelines(all_lines)
+            # 最后执行文件重命名
+            for old_name, new_name in rename_map.items():
+                shutil.move(old_name, new_name)
+            # 刷新 右侧显示
+            self.show_directory_metadata(folder_path)                    
+        except Exception as exc:
+            logging.error("优化视频文件名称失败: %s, 错误: %s", folder_path, exc)
 
     # ------------------------------------------------------------------
     # Overrides expected by mixins
