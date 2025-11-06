@@ -8,6 +8,7 @@ from typing import Optional
 from PySide6.QtWidgets import QApplication
 
 from PySide6.QtCore import QDir, Qt
+from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import (
     QFileSystemModel,
     QHBoxLayout,
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
+    QToolTip,
     QVBoxLayout,
     QWidget,
 )
@@ -154,7 +156,7 @@ class TabExplorerWidget(
         elif action == copy_path_action:
             clipboard = QApplication.clipboard()
             clipboard.setText(folder_path)
-            # 弹出 toast 提示
+            QToolTip.showText(QCursor.pos(), "已复制到剪贴板", self.ui.treeView, msecShowTime=2000)
             
 
     def _add_to_favorites(self, folder_path: str) -> None:
