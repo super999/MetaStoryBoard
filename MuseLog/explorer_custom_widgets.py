@@ -41,7 +41,7 @@ JSON42_HISTORY_FILE = CONFIG_DIR / "json42_history.json"
 JSON42_HISTORY_LIMIT = 50
 JSON42_HISTORY_KEY = "monster_numbers"
 
-SPINE_TEMPLATE_SOURCE = Path(r"D:\素材资源\spine角色\僵尸-模板\僵尸模板\ske-template-01.spine")
+SPINE_TEMPLATE_SOURCE = Path(r"D:\美术资源\spine角色\地球危机-模板\僵尸模板\ske-template-01.spine")
 GAME_MONSTER_BASE_PATH = Path(r"D:\cocos_workspace\oops-game-kit\assets\resources-spine\art-spine\monsters")
 IMAGES_KEEP_FOLDER = "preds-BiRefNet_resize"
 

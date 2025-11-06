@@ -110,6 +110,15 @@ class MetadataMixin:
                 op_name="解压",
                 op_data=archive,
             )
+            
+        spine_files = self._list_files(folder, {".spine"})
+        for index, spine in enumerate(spine_files):
+            meta[f"Spine文件_{index}"] = MetaStruct(
+                os.path.basename(spine),
+                op_type="Spine文件操作",
+                op_name="启动Spine",
+                op_data=spine,
+            )
         return meta
 
     def on_table_cell_activated(self, row: int, column: int) -> None:

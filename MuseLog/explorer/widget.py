@@ -3,7 +3,9 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import subprocess
 from typing import Optional
+from PySide6.QtWidgets import QApplication
 
 from PySide6.QtCore import QDir, Qt
 from PySide6.QtWidgets import (
@@ -66,7 +68,10 @@ class TabExplorerWidget(
         header = self.ui.tableMeta.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.Fixed)
+        header.setSectionResizeMode(2, QHeaderView.Fixed)
         self.ui.tableMeta.setColumnWidth(1, 400)
+        self.ui.tableMeta.setColumnWidth(2, 150)
+        
 
         self._favorites_store = FavoritesStore()
         self._video_detail_widget: Optional[VideoDetailWidget] = None
@@ -140,11 +145,17 @@ class TabExplorerWidget(
         menu = QMenu(self.ui.treeView)
         delete_action = menu.addAction("删除文件夹")
         favorite_action = menu.addAction("收藏此文件夹")
+        copy_path_action = menu.addAction("复制文件夹路径到剪贴板")
         action = menu.exec(self.ui.treeView.viewport().mapToGlobal(point))
         if action == delete_action:
             self._confirm_delete_folder(folder_path)
         elif action == favorite_action:
             self._add_to_favorites(folder_path)
+        elif action == copy_path_action:
+            clipboard = QApplication.clipboard()
+            clipboard.setText(folder_path)
+            # 弹出 toast 提示
+            
 
     def _add_to_favorites(self, folder_path: str) -> None:
         normalized = os.path.normpath(folder_path)
@@ -277,6 +288,19 @@ class TabExplorerWidget(
             except Exception as exc:
                 QMessageBox.warning(self, "解压失败", f"无法解压文件：\n{archive_path}\n错误：{exc}", QMessageBox.Ok)
             return
+        if op_type == "Spine文件操作":
+            spine_app_path = "C:\\Program Files\\Spine\\Spine.exe"
+            spine_path = str(op_data)
+            logging.info("打开Spine文件: %s", spine_path)
+            try:                
+                if os.path.isfile(spine_path):
+                    # 使用subprocess打开spine文件
+                    subprocess.Popen([spine_app_path, spine_path])
+                else:
+                    QMessageBox.warning(self, "文件不存在", f"文件不存在：\n{spine_path}", QMessageBox.Ok)
+            except Exception as exc:
+                QMessageBox.warning(self, "读取文件失败", f"无法读取文件：\n{spine_path}\n错误：{exc}", QMessageBox.Ok)
+            
         logging.debug("未处理的元数据操作类型: %s", op_type)
 
     # ------------------------------------------------------------------
@@ -297,37 +321,37 @@ class TabExplorerWidget(
     # Quick access buttons
     # ------------------------------------------------------------------
     def on_reference_clicked(self) -> None:
-        current_path = self.ui.lineAddress.text().strip()
+        current_path = self.ui.labelSelectPath.text().strip()
         ref_dir = os.path.join(current_path, "参考图")
-        self._ensure_folder_and_navigate(ref_dir)
+        self._ensure_folder(ref_dir)
 
     def on_sequence_frames_clicked(self) -> None:
-        current_path = self.ui.lineAddress.text().strip()
+        current_path = self.ui.labelSelectPath.text().strip()
         seq_dir = os.path.join(current_path, "序列帧")
-        self._ensure_folder_and_navigate(seq_dir)
+        self._ensure_folder(seq_dir)
 
     def on_spine_clicked(self) -> None:
-        current_path = self.ui.lineAddress.text().strip()
+        current_path = self.ui.labelSelectPath.text().strip()
         spine_dir = os.path.join(current_path, "Spine")
-        self._ensure_folder_and_navigate(spine_dir)
+        self._ensure_folder(spine_dir)
 
     def on_video_clicked(self) -> None:
-        current_path = self.ui.lineAddress.text().strip()
+        current_path = self.ui.labelSelectPath.text().strip()
         video_dir = os.path.join(current_path, "视频")
-        self._ensure_folder_and_navigate(video_dir)
+        self._ensure_folder(video_dir)
 
     def on_size_modify_clicked(self) -> None:
-        current_path = self.ui.lineAddress.text().strip()
+        current_path = self.ui.labelSelectPath.text().strip()
         size_modify_dir = os.path.join(current_path, "尺寸修改")
-        self._ensure_folder_and_navigate(size_modify_dir)
+        self._ensure_folder(size_modify_dir)
 
-    def _ensure_folder_and_navigate(self, target_dir: str) -> None:
+    def _ensure_folder(self, target_dir: str) -> None:
         if os.path.isdir(target_dir):
-            self.navigate_to_path(target_dir)
+            # self.navigate_to_path(target_dir)
             return
         try:
             os.makedirs(target_dir, exist_ok=True)
-            self.navigate_to_path(target_dir)
+            # self.navigate_to_path(target_dir)
         except Exception as exc:
             QMessageBox.warning(self, "错误", f"无法创建目录：\n{exc}", QMessageBox.Ok)
 

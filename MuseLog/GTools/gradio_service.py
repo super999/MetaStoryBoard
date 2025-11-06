@@ -1,7 +1,7 @@
 import os
 from gradio_client import Client, handle_file
 import logging
-
+import requests
 
 class GradioService:
 
@@ -36,8 +36,6 @@ class GradioService:
     # 把图片变为透明底
 
     def remove_image_background(self, image_path: str, target_image_path: str) -> dict[str] | None:
-        import requests
-        url = self.base_url + "/image"
         try:
             client = Client(self.base_url)
             result = client.predict(
@@ -63,3 +61,62 @@ class GradioService:
         except Exception as e:
             logging.error("请求 Gradio 服务失败: %s", str(e))
             return None
+
+        """
+            from gradio_client import Client, handle_file
+            client = Client("http://127.0.0.1:7861/")
+            result = client.predict(
+                    images=[handle_file('https://github.com/gradio-app/gradio/raw/main/test/test_files/sample_file.pdf')],
+                    resolution="Hello!!",
+                    weights_file="General",
+                    api_name="/batch"
+            )
+            print(result)
+            
+            return: Tuple with the following structure:
+            [0] list[dict(image: dict(path: str | None (Path to a local file), url: str | None (Publicly available url or base64 encoded image), size: int | None (Size of image in bytes), orig_name: str | None (Original filename), mime_type: str | None (mime type of image), is_stream: bool (Can always be set to False), meta: dict()), caption: str | None) | dict(video: filepath, caption: str | None)]
+                The output value that appears in the "抠图结果" Gallery component.
+
+            [1] filepath
+                The output value that appears in the "下载蒙版图像." File component.
+        """ 
+
+    def remove_background_batch(self, image_paths: list[str], target_dir: str) -> list[dict[str] | None]:
+        rm_results = []
+        try:
+            client = Client(self.base_url)
+            handle_files = [handle_file(image_path) for image_path in image_paths]
+            result = client.predict(
+                images=handle_files,
+                resolution="512x512",
+                weights_file="General",
+                api_name="/batch"
+            )
+            process_list = result[0]  # type: ignore[index]
+            mask_file_path = result[1]  # type: ignore[index]
+            # 例子： result = ['C:\\Users\\xiawe\\AppData\\Local\\Temp\\gradio\\...\\image1.png', ...]
+            if not result or not isinstance(process_list, list):
+                logging.error(f"请求 Gradio 服务批量去除图片背景失败, 返回结果格式错误: {result}")
+                return rm_results
+            for i, res_dict in enumerate(process_list):
+                if not res_dict or not isinstance(res_dict, dict) or "image" not in res_dict:
+                    logging.error(f"请求 Gradio 服务批量去除图片背景失败, 返回结果格式错误: {res_dict}")
+                    rm_results.append(None)
+                    continue
+                result_image_path = res_dict["image"]
+                if not result_image_path or not isinstance(result_image_path, str):
+                    logging.error(f"请求 Gradio 服务批量去除图片背景失败, 返回结果格式错误: {res_dict}")
+                    rm_results.append(None)
+                    continue
+                target_image_path = os.path.join(target_dir, os.path.basename(image_paths[i]))
+                os.replace(result_image_path, target_image_path)
+                logging.info(f"成功请求 Gradio 服务批量去除图片背景: {image_paths[i]}, 结果: {res_dict}")
+                rm_results.append({
+                    "original_image_path": image_paths[i],
+                    "processed_image_path": target_image_path
+                })
+            return rm_results
+        except Exception as e:
+            logging.error("请求 Gradio 服务批量去除图片背景失败: %s", str(e))
+            return rm_results
+        
