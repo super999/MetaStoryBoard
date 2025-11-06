@@ -1,7 +1,7 @@
 import os
 from typing import Dict, Optional
 
-from PySide6.QtWidgets import QMainWindow, QApplication, QWidget
+from PySide6.QtWidgets import QMainWindow, QApplication, QWidget, QMessageBox
 
 from MuseLog.explorer import TabExplorerWidget
 from MuseLog.explorer.persistence_mixin import PersistenceMixin
@@ -10,7 +10,7 @@ from MuseLog.tab_home_widget import TabHomeWidget
 from MuseLog.tab_settings_widget import TabSettingsWidget
 from MuseLog.tab_video_gen_ai_widget import TabVideoGenAIWidget
 from MuseLog.ui.ui_main_window import Ui_MainWindow
-
+from MuseLog.explorer_signals import signal_manager
 
 class MuseLogMainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
@@ -43,6 +43,9 @@ class MuseLogMainWindow(QMainWindow, Ui_MainWindow):
         self._restore_explorer_tabs()
         if not any(key.startswith("explorer-") for key in self.opened_tabs):
             self.open_explorer_tab()
+        
+        # 绑定信号
+        self.bind_signals()
 
     def open_home_tab(self):
         tab_key = 'home'
@@ -191,3 +194,11 @@ class MuseLogMainWindow(QMainWindow, Ui_MainWindow):
     def _format_explorer_title(tab_id: str) -> str:
         suffix = tab_id.split("-", 1)[-1]
         return f"资源浏览 {suffix}"
+
+    def bind_signals(self) -> None:
+        # 绑定通知 GUI 消息信号
+        signal_manager.gui_notify_msg_to_app.connect(self.on_gui_notify_msg_to_app)
+
+    def on_gui_notify_msg_to_app(self, message: str) -> None:
+        # 处理通知 GUI 消息
+        QMessageBox.information(self, "通知", message, QMessageBox.Ok)

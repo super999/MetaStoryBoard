@@ -45,6 +45,7 @@ SPINE_TEMPLATE_SOURCE = Path(r"D:\素材资源\spine角色\僵尸-模板\僵尸�
 GAME_MONSTER_BASE_PATH = Path(r"D:\cocos_workspace\oops-game-kit\assets\resources-spine\art-spine\monsters")
 IMAGES_KEEP_FOLDER = "preds-BiRefNet_resize"
 
+
 def _resolve_tab_id(widget: QWidget) -> Optional[str]:
     current: Optional[QWidget] = widget
     while current is not None:
@@ -77,6 +78,12 @@ def resolve_custom_widget_builder(folder: str, meta: Dict[str, Any]) -> Optional
         return build_spine_export_widgets
     if folder_name_lower == JSON42_FOLDER_NAME:
         return build_json42_widgets
+
+    # 获取 父 父 文件夹名称
+    grandparent_dir_name = folder_path.parent.parent.name
+    if grandparent_dir_name == SEQUENCE_FOLDER_NAME:
+        return build_sequence_frames_pngs_widgets
+
     return None
 
 
@@ -142,6 +149,7 @@ def _build_sequence_folder_name(frame_rate: int, animation_type: str) -> str:
     safe_animation_type = animation_type or DEFAULT_ANIMATION_TYPE
     return f"(秒抽{frame_rate}帧)-{safe_animation_type}"
 
+
 def _build_video_default_folder_name(folder: Path) -> str:
     name_count = 1
     folder_name = f'{DEFAULT_VIDEO_TEMPLATE_TYPE}_{name_count}'
@@ -149,6 +157,7 @@ def _build_video_default_folder_name(folder: Path) -> str:
         name_count += 1
         folder_name = f'{DEFAULT_VIDEO_TEMPLATE_TYPE}_{name_count}'
     return folder_name
+
 
 def _build_video_folder_name_by_type(parent: Path, animation_type: str) -> str:
     name_count = 1
@@ -158,6 +167,7 @@ def _build_video_folder_name_by_type(parent: Path, animation_type: str) -> str:
         name_count += 1
         folder_name = f'{safe_animation_type}_{name_count}'
     return folder_name
+
 
 def _emit_rename_request(container: QWidget, folder_path: Path, new_name: str) -> None:
     tab_id = _resolve_tab_id(container)
@@ -222,7 +232,6 @@ def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Di
         animation_type_value = new_type
         new_name = _build_sequence_folder_name(frame_rate_value, animation_type_value)
         _emit_rename_request(container, folder_path, new_name)
-
     btn_modify_frame_rate.clicked.connect(on_modify_frame_rate_clicked)
     btn_modify_animation_type.clicked.connect(on_modify_animation_type_clicked)
 
@@ -236,7 +245,6 @@ def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Di
                 logging.debug("缺少 tab_id，无法发送删除动画序列请求: %s", folder_path)
                 return
             signal_manager.delete_selected_animation_sequence.emit(tab_id)
-
     btn_delete_sequence.clicked.connect(on_delete_sequence_clicked)
 
     return [
@@ -248,6 +256,34 @@ def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Di
         _make_spacer(container),
     ]
 
+
+def build_sequence_frames_pngs_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
+    folder_path = Path(full_folder)    
+    # 把序列帧图片扣除背景
+    btn_pngs_remove_bg = QPushButton("扣除背景", container)
+    def on_pngs_remove_bg_clicked() -> None:
+        tab_id = _resolve_tab_id(container)
+        if not tab_id:
+            logging.debug("缺少 tab_id，无法发送扣除背景请求: %s", folder_path)
+            return
+        signal_manager.remove_background_from_sequence_frames.emit(tab_id, str(folder_path))
+    btn_pngs_remove_bg.clicked.connect(on_pngs_remove_bg_clicked)
+    # 序列帧转为缩放为标准大小（512x512）
+    btn_pngs_resize = QPushButton("缩放为标准大小", container)
+    def on_pngs_resize_clicked() -> None:
+        tab_id = _resolve_tab_id(container)
+        if not tab_id:
+            logging.debug("缺少 tab_id，无法发送缩放请求: %s", folder_path)
+            return
+        signal_manager.resize_sequence_frames.emit(tab_id, str(folder_path))
+    btn_pngs_resize.clicked.connect(on_pngs_resize_clicked)
+    return [
+        btn_pngs_remove_bg,
+        btn_pngs_resize,
+        _make_spacer(container),
+    ]
+
+
 def build_video_modify_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
     folder_path = Path(full_folder)
     animation_type = folder_path.name
@@ -258,12 +294,14 @@ def build_video_modify_widgets(container: QWidget, full_folder: str, meta: Dict[
     animation_type_combo.addItems(ALL_ANIMATION_TYPES)
     if animation_type not in ALL_ANIMATION_TYPES:
         animation_type_combo.addItem(animation_type)
+
     def on_modify_video_clicked() -> None:
         new_name = _build_video_folder_name_by_type(folder_path.parent, animation_type_combo.currentText().strip())
         _emit_rename_request(container, folder_path, new_name)
     btn_modify_video.clicked.connect(on_modify_video_clicked)
     # 扫描并优化视频文件名称
     btn_optimize_video = QPushButton("优化视频文件名称", container)
+
     def on_optimize_video_clicked() -> None:
         tab_id = _resolve_tab_id(container)
         if not tab_id:
@@ -444,6 +482,7 @@ def build_sequence_frames_widgets_parent(container: QWidget, full_folder: str, m
 
 def build_video_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
     video_path = Path(full_folder)
+
     def create_video_placeholder() -> None:
         target = video_path / _build_video_default_folder_name(video_path)
         target.mkdir(exist_ok=True)
