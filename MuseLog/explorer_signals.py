@@ -14,6 +14,10 @@ class ExplorerSignalManager(QObject):
     gui_notify_msg_to_app = Signal(str)
     # 定义缩放序列帧图片信号
     resize_sequence_frames = Signal(str, str)
+    # 定义优化参考图文件名称信号
+    optimize_reference_image_filenames = Signal(str, str)
+    # 定义刷新标签页元数据信号
+    gui_fresh_tab_collect_metadata = Signal(str)
 
 # 创建全局的 signal_manager 实例
 

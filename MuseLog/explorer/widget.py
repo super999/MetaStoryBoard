@@ -31,6 +31,7 @@ from MuseLog.explorer_signals import signal_manager
 from MuseLog.favorites_store import FavoritesStore
 from MuseLog.model.node import FavoriteNode
 from MuseLog.ui.ui_tab_explorer import Ui_TabExplorer
+from MuseLog.widget_image_detail import WidgetImageDetail
 from MuseLog.widget_video_detail import VideoDetailWidget
 
 
@@ -77,6 +78,7 @@ class TabExplorerWidget(
 
         self._favorites_store = FavoritesStore()
         self._video_detail_widget: Optional[VideoDetailWidget] = None
+        self._image_detail_widget: Optional[WidgetImageDetail] = None
 
         self._init_navigation_state()
         self._init_metadata_state()
@@ -132,6 +134,7 @@ class TabExplorerWidget(
         signal_manager.delete_selected_animation_sequence.connect(self.on_delete_selected_animation_sequence)
         signal_manager.rename_folder.connect(self.on_update_animation_sequence)
         signal_manager.optimize_video_filenames.connect(self.on_optimize_video_filenames)
+        signal_manager.gui_fresh_tab_collect_metadata.connect(self.on_gui_fresh_tab_collect_metadata)
     # ------------------------------------------------------------------
     # Context menu & actions
     # ------------------------------------------------------------------
@@ -267,12 +270,13 @@ class TabExplorerWidget(
             return
         if op_type == "参考图元数据":
             image_path = str(op_data)
-            logging.info("显示参考图元数据: %s", image_path)
+            logging.info("用内部查看器显示参考图元数据: %s", image_path)
             try:
-                if os.path.isfile(image_path):
-                    os.startfile(image_path)  # type: ignore[attr-defined]
-                else:
-                    QMessageBox.warning(self, "文件不存在", f"文件不存在：\n{image_path}", QMessageBox.Ok)
+                if self._image_detail_widget is None:
+                    self._image_detail_widget = WidgetImageDetail(self.ui.DetailWidget)
+                    self._image_detail_widget.notify_close.connect(self._clear_detail_widget)
+                self._image_detail_widget.set_image(image_path)
+                self._show_detail_widget(self._image_detail_widget) 
             except Exception as exc:
                 QMessageBox.warning(self, "读取文件失败", f"无法读取文件：\n{image_path}\n错误：{exc}", QMessageBox.Ok)
             return
@@ -441,6 +445,14 @@ class TabExplorerWidget(
             self.show_directory_metadata(folder_path)                    
         except Exception as exc:
             logging.error("优化视频文件名称失败: %s, 错误: %s", folder_path, exc)
+
+    def on_gui_fresh_tab_collect_metadata(self, tab_id: str) -> None:
+        if tab_id != self.tab_id:
+            return
+        logging.info("收到刷新标签页元数据请求, tab_id: %s", tab_id)
+        if not self._current_select_path:
+            return
+        self.show_directory_metadata(self._current_select_path)
 
     # ------------------------------------------------------------------
     # Overrides expected by mixins

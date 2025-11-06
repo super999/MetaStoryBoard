@@ -495,8 +495,21 @@ def build_video_widgets(container: QWidget, full_folder: str, meta: Dict[str, An
 
 def build_reference_drawings_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
     ref_path = Path(full_folder)
-    # 编辑参考图文件夹的名称
-    return [_make_spacer(container)]
+    # 1.0 编辑参考图文件夹的名称,
+    
+    # 2.0 优化文件夹内的图片名称
+    btn_optimize_ref_images = QPushButton("优化参考图文件名", container)
+    def on_optimize_ref_images_clicked() -> None:
+        tab_id = _resolve_tab_id(container)
+        if not tab_id:
+            logging.debug("缺少 tab_id，无法发送优化参考图名称请求: %s", ref_path)
+            return
+        signal_manager.optimize_reference_image_filenames.emit(tab_id, str(ref_path))
+    btn_optimize_ref_images.clicked.connect(on_optimize_ref_images_clicked)
+    return [
+        btn_optimize_ref_images,
+        _make_spacer(container)
+    ]
 
 
 __all__ = [

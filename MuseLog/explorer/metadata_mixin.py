@@ -80,7 +80,7 @@ class MetadataMixin:
             )
 
         refs: List[str] = []
-        images = self._list_files(folder, {".png", ".jpg", ".jpeg", ".bmp", ".gif"})
+        images = self._list_files(folder, {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".jfif"})
         for image_path in images:
             lower_name = os.path.basename(image_path).lower()
             # if "ref" in lower_name or "reference" in lower_name:
