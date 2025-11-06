@@ -1,7 +1,8 @@
 import os
-import os
-from typing import Optional
 import subprocess
+import sys
+from typing import Optional
+
 from PySide6.QtWidgets import QApplication
 from PySide6.QtWidgets import QMessageBox, QWidget, QToolTip
 
@@ -45,26 +46,30 @@ class WidgetImageDetail(QWidget):
         if not self.image_path:
             QMessageBox.warning(self, "警告", "没有可浏览的图片。", QMessageBox.Ok)
             return
-        folder = os.path.dirname(self.image_path)
-        # 使用系统文件管理器打开文件夹并选中图片
-        if os.name == 'nt':  # Windows
-            subprocess.run(['explorer', '/select,', self.image_path])
-        elif os.name == 'posix':  # macOS or Linux
-            try:
-                if sys.platform == 'darwin':  # macOS
-                    subprocess.run(['open', '-R', self.image_path])
-                else:  # Linux
-                    subprocess.run(['xdg-open', folder])
-            except Exception as e:
-                QMessageBox.warning(self, "错误", f"无法打开文件夹：\n{e}", QMessageBox.Ok)
+        target = os.path.abspath(self.image_path)
+        if not os.path.exists(target):
+            QMessageBox.warning(self, "警告", "图片文件不存在，无法打开所在位置。", QMessageBox.Ok)
+            return
+
+        try:
+            if sys.platform.startswith("win"):
+                # explorer /select,"path" 会选中目标文件
+                subprocess.run(["explorer", "/select,", os.path.normpath(target)], check=False)
+            elif sys.platform == "darwin":
+                subprocess.run(["open", "-R", target], check=False)
+            else:
+                folder = os.path.dirname(target) or "."
+                subprocess.run(["xdg-open", folder], check=False)
+        except Exception as exc:
+            QMessageBox.warning(self, "错误", f"无法打开文件夹：\n{exc}", QMessageBox.Ok)
 
 
     def on_remove_background_clicked(self) -> None:
         if not self.image_path:
             QMessageBox.warning(self, "警告", "没有可处理的图片。", QMessageBox.Ok)
             return
-        base_name = os.path.basename(self.image_path)
-        target_name = f"{base_name}_扣除背景.png"
+        base_name_without_ext = os.path.splitext(os.path.basename(self.image_path))[0]
+        target_name = f"{base_name_without_ext}_扣除背景.png"
         target_path = os.path.join(os.path.dirname(self.image_path), target_name)
         self._image_processor.remove_background(self.image_path, target_path)
         QMessageBox.information(self, "完成", f"图片背景已去除，保存为: {target_name}", QMessageBox.Ok)
