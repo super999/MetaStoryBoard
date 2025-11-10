@@ -72,6 +72,8 @@ def resolve_custom_widget_builder(folder: str, meta: Dict[str, Any]) -> Optional
         return build_spine_widgets
     if folder_name_lower == VIDEO_FOLDER_NAME:
         return build_video_widgets
+    if folder_name_lower == REF_FOLDER_NAME:
+        return build_reference_images_widgets
     if folder_name_lower == SEQUENCE_FOLDER_NAME:
         return build_sequence_frames_widgets_parent
     if folder_name_lower == SPINE_EXPORT_FOLDER_NAME:
@@ -493,9 +495,74 @@ def build_video_widgets(container: QWidget, full_folder: str, meta: Dict[str, An
     return [btn_create_placeholder, _make_spacer(container)]
 
 
+def get_folder_next_counter(folder_path: Path) -> int:
+    max_counter = 0
+    for item in folder_path.iterdir():
+        if not item.is_dir():
+            continue
+        # 如果 item 不是 文件夹，跳过
+        if not item.is_dir():
+            continue
+        match = re.search(r".*-(\d+)$", item.name)
+        if match:
+            try:
+                counter = int(match.group(1))
+                if counter > max_counter:
+                    max_counter = counter
+            except ValueError:
+                continue
+    return max_counter + 1
+
+def build_reference_images_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
+    ref_path = Path(full_folder)
+    # 创建参考图占位符文件夹
+    btn_create_ref_placeholder = QPushButton("创建参考图占位符文件夹", container)
+    def on_create_ref_placeholder_clicked() -> None:
+        counter = get_folder_next_counter(ref_path)
+        draw_platform_name = "未知平台"
+        creature_name = "未知生物"
+        # 获取 参考图上一级的文件夹名称，作为 生物名称
+        parent_name = ref_path.parent.name
+        if parent_name:
+            creature_name = parent_name
+            # 如果 生物名称 包含 '-'，取第一个部分
+            if '-' in parent_name:
+                creature_name = parent_name.split('-', 1)[0]
+        folder_name = f"{draw_platform_name}-{creature_name}-{counter}"
+        target = ref_path / folder_name
+        target.mkdir(exist_ok=True)
+        QMessageBox.information(container, "创建成功", f"已成功创建 {target}")
+    btn_create_ref_placeholder.clicked.connect(on_create_ref_placeholder_clicked)
+    return [
+        btn_create_ref_placeholder,
+        _make_spacer(container)
+    ]
+
+
 def build_reference_drawings_widgets(container: QWidget, full_folder: str, meta: Dict[str, Any]) -> Sequence[QWidget]:
     ref_path = Path(full_folder)
-    # 1.0 编辑参考图文件夹的名称,
+    # 1.0 编辑参考图文件夹的名称
+    btn_rename_ref_folder = QPushButton("重命名参考图文件夹", container)
+    label_name_platform = QLabel("平台", container)
+    line_edit_name = QLineEdit(container)
+    line_edit_name.setPlaceholderText("请输入平台名称")
+    label_name_creature = QLabel("生物", container)
+    line_edit_creature = QLineEdit(container)
+    line_edit_creature.setPlaceholderText("请输入生物名称")
+    counter = 1
+    # 正则匹配
+    pattern = re.compile(r"^(?P<platform>[^-]+)-(?P<creature>[^-]+)-(?P<counter>\d+)$")
+    match = pattern.match(ref_path.name)
+    if match:
+        line_edit_name.setText(match.group("platform"))
+        line_edit_creature.setText(match.group("creature"))
+        counter = int(match.group("counter")) if match.group("counter").isdigit() else 1
+    def on_rename_ref_folder_clicked() -> None:
+        platform_name = line_edit_name.text().strip() or "未知平台"
+        creature_name = line_edit_creature.text().strip() or "未知生物"
+        new_folder_name = f"{platform_name}-{creature_name}-{counter}"
+        shutil.move(str(ref_path), str(ref_path.parent / new_folder_name))
+    btn_rename_ref_folder.clicked.connect(on_rename_ref_folder_clicked)
     
     # 2.0 优化文件夹内的图片名称
     btn_optimize_ref_images = QPushButton("优化参考图文件名", container)
@@ -506,7 +573,27 @@ def build_reference_drawings_widgets(container: QWidget, full_folder: str, meta:
             return
         signal_manager.optimize_reference_image_filenames.emit(tab_id, str(ref_path))
     btn_optimize_ref_images.clicked.connect(on_optimize_ref_images_clicked)
+    
+    # 3.0 复制文件夹名称，并新建 counter + 1 的文件夹
+    btn_copy_ref_folder = QPushButton("复制参考图文件夹", container)
+    if match:
+        btn_copy_ref_folder.setEnabled(True)
+        def on_copy_ref_folder_clicked() -> None:
+            counter_2 = get_folder_next_counter(ref_path.parent)
+            new_folder_name = f"{match.group('platform')}-{match.group('creature')}-{counter_2}"
+            target = ref_path.parent / new_folder_name
+            os.makedirs(target, exist_ok=True)
+            QMessageBox.information(container, "创建成功", f"已成功创建 {target}")
+        btn_copy_ref_folder.clicked.connect(on_copy_ref_folder_clicked)
+    else:
+        btn_copy_ref_folder.setEnabled(False)   
     return [
+        btn_rename_ref_folder,
+        label_name_platform,
+        line_edit_name,
+        label_name_creature,
+        line_edit_creature,
+        btn_copy_ref_folder,
         btn_optimize_ref_images,
         _make_spacer(container)
     ]

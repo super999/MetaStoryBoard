@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>680</width>
-    <height>451</height>
+    <width>664</width>
+    <height>482</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -162,7 +162,7 @@
           <widget class="QWidget" name="widget" native="true">
            <property name="maximumSize">
             <size>
-             <width>300</width>
+             <width>350</width>
              <height>16777215</height>
             </size>
            </property>
@@ -195,7 +195,7 @@
             <item>
              <widget class="QLabel" name="label_3">
               <property name="text">
-               <string>TextLabel</string>
+               <string>参考模型</string>
               </property>
              </widget>
             </item>
@@ -205,12 +205,12 @@
             <item>
              <widget class="QLabel" name="label_4">
               <property name="text">
-               <string>TextLabel</string>
+               <string>参考图</string>
               </property>
              </widget>
             </item>
             <item>
-             <widget class="QComboBox" name="comboBox">
+             <widget class="QComboBox" name="comboRefImage">
               <property name="editable">
                <bool>true</bool>
               </property>
@@ -246,6 +246,20 @@
                <property name="bottomMargin">
                 <number>0</number>
                </property>
+               <item>
+                <widget class="QPushButton" name="btnCopyCfg">
+                 <property name="text">
+                  <string>复制记录</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="btnPasteCfg">
+                 <property name="text">
+                  <string>粘贴</string>
+                 </property>
+                </widget>
+               </item>
                <item>
                 <spacer name="horizontalSpacer_2">
                  <property name="orientation">

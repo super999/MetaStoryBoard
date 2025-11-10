@@ -1,14 +1,18 @@
 import json
 import os
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from PySide6.QtWidgets import QComboBox, QMessageBox, QWidget
+from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QComboBox, QMessageBox, QWidget, QToolTip
 from PySide6.QtCore import Signal
+from MuseLog.config_paths import get_config_file
 from MuseLog.ui.ui_widget_video_detail import Ui_Form
 
 
-REFERENCE_HISTORY_KEY = "__reference_history__"
+REFERENCE_HISTORY_NAME = "video_detail_reference_history.json"
+CONFIG_FILE = get_config_file(REFERENCE_HISTORY_NAME)
 REFERENCE_HISTORY_LIMIT = 20
 REFERENCE_PLACEHOLDER = "可选：参考图路径或链接"
 
@@ -47,6 +51,8 @@ class VideoDetailWidget(QWidget):
         self.ui.cancelButton.clicked.connect(self._on_cancel_clicked)
         self.ui.closeButton.clicked.connect(self._on_notify_close)
         self.ui.playButton.clicked.connect(self._on_play_video_clicked)
+        self.ui.btnCopyCfg.clicked.connect(self._on_copy_cfg_clicked)
+        self.ui.btnPasteCfg.clicked.connect(self._on_paste_cfg_clicked)
 
         self._set_buttons_enabled(False)
 
@@ -89,8 +95,12 @@ class VideoDetailWidget(QWidget):
             "未选择",
             "Doubao-Seedance-1.0-pro-fast 251015",
             "Doubao-Seedance-1.0-pro-250528",
+            "即梦 视频 3.0 Pro Fast",
+            "即梦 视频 3.0 Pro",
+            "即梦 视频 3.0",
+            "即梦 Agent",
             "wan2.2 i2v",
-            "豆包"            
+            "豆包"
         ]
         self.ui.comboRefModel.addItems(model_list)
 
@@ -137,6 +147,7 @@ class VideoDetailWidget(QWidget):
         prompt = self.ui.textEdit.toPlainText().strip()
         reference = self._reference_combo.currentText().strip()
         model = self.ui.comboRefModel.currentText().strip()
+        qualified = self.ui.checkQualified.isChecked()
 
         entry = deepcopy(self._all_metadata.get(self._metadata_key, {}))
         if not isinstance(entry, dict):
@@ -146,6 +157,7 @@ class VideoDetailWidget(QWidget):
             "video_path": self._video_path,
             "prompt": prompt,
             "model": model,
+            "qualified": str(qualified),
         })
 
         if reference:
@@ -170,7 +182,7 @@ class VideoDetailWidget(QWidget):
 
     def _on_notify_close(self) -> None:
         self.notify_close.emit()
-    
+
     def _on_play_video_clicked(self) -> None:
         if not self._video_path or not os.path.isfile(self._video_path):
             QMessageBox.warning(self, "播放失败", "视频文件不存在，无法播放。", QMessageBox.Ok)
@@ -186,15 +198,69 @@ class VideoDetailWidget(QWidget):
                 QMessageBox.warning(self, "播放失败", "当前操作系统不支持自动播放视频。", QMessageBox.Ok)
         except Exception as exc:
             QMessageBox.critical(self, "播放失败", f"无法打开视频文件：\n{exc}")
-    
+
+    def _on_copy_cfg_clicked(self) -> None:
+        if not self._video_path or not os.path.isfile(self._video_path):
+            QMessageBox.warning(self, "复制失败", "视频文件不存在，无法复制配置。", QMessageBox.Ok)
+            return
+        prompt = self.ui.textEdit.toPlainText().strip()
+        reference = self._reference_combo.currentText().strip()
+        model = self.ui.comboRefModel.currentText().strip()
+        qualified = self.ui.checkQualified.isChecked()
+
+        cfg_lines = [
+            f"视频路径: {self._video_path}",
+            f"提示词: {prompt}",
+            f"参考图: {reference or '无'}",
+            f"模型: {model}",
+            f"合格: {'是' if qualified else '否'}"
+        ]
+        cfg_text = "\n".join(cfg_lines)
+
+        clipboard = QApplication.instance().clipboard()
+        clipboard.setText(cfg_text)
+        QToolTip.showText(self.ui.btnCopyCfg.mapToGlobal(self.ui.btnCopyCfg.rect().center()), "配置已复制到剪贴板。", self.ui.btnCopyCfg, self.ui.btnCopyCfg.rect(), 2000)
+
+    def _on_paste_cfg_clicked(self) -> None:
+        clipboard = QApplication.instance().clipboard()
+        cfg_text = clipboard.text().strip()
+        if not cfg_text:
+            QMessageBox.warning(self, "粘贴失败", "剪贴板中没有可用的配置内容。", QMessageBox.Ok)
+            return
+
+        lines = cfg_text.splitlines()
+        prompt = ""
+        reference = ""
+        model = "未选择"
+        qualified = False
+
+        for line in lines:
+            if line.startswith("提示词:"):
+                prompt = line[len("提示词:"):].strip()
+            elif line.startswith("参考图:"):
+                reference = line[len("参考图:"):].strip()
+            elif line.startswith("模型:"):
+                model = line[len("模型:"):].strip()
+            elif line.startswith("合格:"):
+                qualified_str = line[len("合格:"):].strip().lower()
+                qualified = qualified_str in ("是", "true", "1", "yes")
+
+        self.ui.textEdit.setPlainText(prompt)
+        self._reference_combo.setCurrentText(reference)
+        self.ui.comboRefModel.setCurrentText(model)
+        self.ui.checkQualified.setChecked(qualified)
+        QToolTip.showText(self.ui.btnPasteCfg.mapToGlobal(self.ui.btnPasteCfg.rect().center()), "配置已从剪贴板粘贴。", self.ui.btnPasteCfg, self.ui.btnPasteCfg.rect(), 2000)
+
     # ---------------------- 元数据维护 ----------------------
+
     def _default_metadata_path(self, video_path: str) -> str:
         folder = os.path.dirname(video_path)
         return os.path.join(folder, "提示词.txt")
 
     def _load_all_metadata(self) -> Dict[str, Dict[str, Any]]:
+        self._reference_history = self._load_reference_history()
+
         if not self._metadata_path or not os.path.isfile(self._metadata_path):
-            self._reference_history = []
             return {}
 
         try:
@@ -202,18 +268,13 @@ class VideoDetailWidget(QWidget):
                 data = json.load(f)
         except Exception as exc:
             print(f"[VideoDetailWidget] 元数据读取失败: {exc}")
-            self._reference_history = []
             return {}
 
         if not isinstance(data, dict):
-            self._reference_history = []
             return {}
 
         normalized: Dict[str, Dict[str, Any]] = {}
         for key, value in data.items():
-            if key == REFERENCE_HISTORY_KEY:
-                self._reference_history = self._normalize_reference_history(value)
-                continue
             if isinstance(value, dict):
                 normalized[key] = value
             elif value is None:
@@ -223,20 +284,43 @@ class VideoDetailWidget(QWidget):
 
         return normalized
 
+    def _load_reference_history(self) -> List[str]:
+        history_file = Path(CONFIG_FILE)
+        if not history_file.is_file():
+            return []
+        try:
+            with open(history_file, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            history = payload.get("history", [])
+            if isinstance(history, list):
+                return self._normalize_reference_history(history)
+        except Exception as exc:
+            print(f"[VideoDetailWidget] 参考图历史读取失败: {exc}")
+        return []
+
     def _write_all_metadata(self, data: Dict[str, Dict[str, Any]]) -> None:
+        self._write_reference_history()
         os.makedirs(os.path.dirname(self._metadata_path), exist_ok=True)
         payload: Dict[str, Any] = {key: value for key, value in data.items()}
-        if self._reference_history:
-            payload[REFERENCE_HISTORY_KEY] = self._reference_history
-        else:
-            payload.pop(REFERENCE_HISTORY_KEY, None)
         with open(self._metadata_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
+
+    def _write_reference_history(self) -> None:
+        history_file = Path(CONFIG_FILE)
+        payload = {"history": self._reference_history}
+        try:
+            os.makedirs(history_file.parent, exist_ok=True)
+            with open(history_file, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+        except Exception as exc:
+            print(f"[VideoDetailWidget] 参考图历史写入失败: {exc}")
 
     def _apply_metadata(self, metadata: Dict[str, Any]) -> None:
         prompt = metadata.get("prompt") or ""
         reference = metadata.get("reference") or ""
         model = metadata.get("model") or "未选择"
+        qualified_str = metadata.get("qualified") or "False"
+        qualified = qualified_str.lower() in ("1", "true", "yes")
         self.ui.textEdit.blockSignals(True)
         self._reference_combo.blockSignals(True)
         reference_line = self._reference_combo.lineEdit()
@@ -251,6 +335,7 @@ class VideoDetailWidget(QWidget):
         self._reference_combo.blockSignals(False)
         self.ui.textEdit.blockSignals(False)
         self.ui.comboRefModel.setCurrentText(model)
+        self.ui.checkQualified.setChecked(qualified)
         self._update_reference_label(reference)
         self._dirty = False
         self._refresh_title()

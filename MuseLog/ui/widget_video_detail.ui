@@ -130,6 +130,22 @@
           <height>30</height>
          </size>
         </property>
+        <property name="editable">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="checkQualified">
+        <property name="maximumSize">
+         <size>
+          <width>100</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>是否合格</string>
+        </property>
        </widget>
       </item>
      </layout>
@@ -182,6 +198,20 @@
       <property name="bottomMargin">
        <number>0</number>
       </property>
+      <item>
+       <widget class="QPushButton" name="btnCopyCfg">
+        <property name="text">
+         <string>复制记录</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnPasteCfg">
+        <property name="text">
+         <string>粘贴</string>
+        </property>
+       </widget>
+      </item>
       <item>
        <spacer name="horizontalSpacer">
         <property name="orientation">

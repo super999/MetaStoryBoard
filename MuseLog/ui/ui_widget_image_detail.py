@@ -23,7 +23,7 @@ class Ui_Form(object):
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName(u"Form")
-        Form.resize(680, 451)
+        Form.resize(664, 482)
         Form.setMinimumSize(QSize(0, 451))
         Form.setStyleSheet(u"QFrame #1 {\n"
 "    border: 1px solid #222222ff;\n"
@@ -87,7 +87,7 @@ class Ui_Form(object):
 
         self.widget = QWidget(self.widget_3)
         self.widget.setObjectName(u"widget")
-        self.widget.setMaximumSize(QSize(300, 16777215))
+        self.widget.setMaximumSize(QSize(350, 16777215))
         self.verticalLayout_3 = QVBoxLayout(self.widget)
         self.verticalLayout_3.setSpacing(0)
         self.verticalLayout_3.setObjectName(u"verticalLayout_3")
@@ -117,11 +117,11 @@ class Ui_Form(object):
 
         self.verticalLayout_3.addWidget(self.label_4)
 
-        self.comboBox = QComboBox(self.widget)
-        self.comboBox.setObjectName(u"comboBox")
-        self.comboBox.setEditable(True)
+        self.comboRefImage = QComboBox(self.widget)
+        self.comboRefImage.setObjectName(u"comboRefImage")
+        self.comboRefImage.setEditable(True)
 
-        self.verticalLayout_3.addWidget(self.comboBox)
+        self.verticalLayout_3.addWidget(self.comboRefImage)
 
         self.widget_2 = QWidget(self.widget)
         self.widget_2.setObjectName(u"widget_2")
@@ -131,6 +131,16 @@ class Ui_Form(object):
         self.horizontalLayout_3.setSpacing(0)
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
         self.horizontalLayout_3.setContentsMargins(0, 0, 0, 0)
+        self.btnCopyCfg = QPushButton(self.widget_2)
+        self.btnCopyCfg.setObjectName(u"btnCopyCfg")
+
+        self.horizontalLayout_3.addWidget(self.btnCopyCfg)
+
+        self.btnPasteCfg = QPushButton(self.widget_2)
+        self.btnPasteCfg.setObjectName(u"btnPasteCfg")
+
+        self.horizontalLayout_3.addWidget(self.btnPasteCfg)
+
         self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.horizontalLayout_3.addItem(self.horizontalSpacer_2)
@@ -178,8 +188,10 @@ class Ui_Form(object):
         self.btnCopyPath.setText(QCoreApplication.translate("Form", u"\u590d\u5236\u5730\u5740", None))
         self.labelImageRect.setText(QCoreApplication.translate("Form", u"\u56fe\u7247\u663e\u793a\u4f4d\u7f6e", None))
         self.label_2.setText(QCoreApplication.translate("Form", u"\u63d0\u793a\u8bcd", None))
-        self.label_3.setText(QCoreApplication.translate("Form", u"TextLabel", None))
-        self.label_4.setText(QCoreApplication.translate("Form", u"TextLabel", None))
+        self.label_3.setText(QCoreApplication.translate("Form", u"\u53c2\u8003\u6a21\u578b", None))
+        self.label_4.setText(QCoreApplication.translate("Form", u"\u53c2\u8003\u56fe", None))
+        self.btnCopyCfg.setText(QCoreApplication.translate("Form", u"\u590d\u5236\u8bb0\u5f55", None))
+        self.btnPasteCfg.setText(QCoreApplication.translate("Form", u"\u7c98\u8d34", None))
         self.btnSave.setText(QCoreApplication.translate("Form", u"\u4fdd\u5b58", None))
         self.btnCancel.setText(QCoreApplication.translate("Form", u"\u53d6\u6d88", None))
     # retranslateUi

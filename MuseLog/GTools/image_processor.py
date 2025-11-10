@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from PIL import Image
 import os
+import re
 import time
 
 from MuseLog.GTools.gradio_service import GradioService
@@ -186,15 +187,23 @@ class ImageProcessor:
         for image_path in image_files:
             # 文件名, 格式如： 8e8fa106-b3e7-41e9-b1bb-53bfbc9bb95d.jfif， 即只有 英文数字和 - 符号， 且长度较长
             filename = image_path.stem
-            # whisk 平台格式 f2d5aea3-e001-4ea8-a4c1-040ef2a4d175.jfif
+            # whisk 旧：平台格式 f2d5aea3-e001-4ea8-a4c1-040ef2a4d175.jfif， 新： Whisk_1b673c63ffaea4886a145d2442b4ecf1dr.jpeg
             platform_name = "XX平台"
-            pattern = r"^[a-zA-Z0-9-]{36}\.jfif$"
-            if image_path.suffix.lower() == ".jfif" and len(filename) == 36 and all(c.isalnum() or c == '-' for c in filename):
+            # 获取扩展名
+            ext = image_path.suffix.lower()
+            ext_list = [".png", ".jpg", ".jpeg", ".bmp", ".jfif", ".tiff"]
+            
+            if len(filename) < 10:
+                continue
+            pattern_new = r"^(?P<platform_name>[^_]+)_([a-z0-9]{34})$"
+            match_result_new = re.match(pattern_new, filename)
+            
+            # 1.0 判断是否是 旧格式
+            if ext in ext_list and len(filename) == 36 and all(c.isalnum() or c == '-' for c in filename):
                 platform_name = "Whisk平台"
-            if all(c.isalnum() or c == '-' for c in filename) and len(filename) > 10:
                 # 优化文件名为： reference_001.png, reference_002.png, ...
                 # 截取最后4位作为文件名
-                new_filename = f"{platform_name}_{image_path.stem[-4:]}{image_path.suffix.lower()}"
+                new_filename = f"{platform_name}_{image_path.stem[-4:]}{ext}"
                 target_image_path = folder_path / new_filename
                 try:
                     image_path.rename(target_image_path)
@@ -202,6 +211,20 @@ class ImageProcessor:
                 except Exception as e:
                     logging.error("重命名文件失败: %s -> %s, 错误: %s", image_path.name, new_filename, str(e))
                     continue
+            # 判断 是否是 whisk 新格式
+            elif ext in ext_list and match_result_new:
+                platform_name = "Whisk平台"
+                # 优化文件名为： reference_001.png, reference_002.png, ...
+                hash_part = match_result_new.groups()[1:]
+                if hash_part:
+                    new_filename = f"{platform_name}_{hash_part[0][:4]}{ext}"
+                    target_image_path = folder_path / new_filename
+                    try:
+                        image_path.rename(target_image_path)
+                        logging.info("已优化文件名: %s -> %s", image_path.name, new_filename)
+                    except Exception as e:
+                        logging.error("重命名文件失败: %s -> %s, 错误: %s", image_path.name, new_filename, str(e))
+                        continue
         logging.info("已优化 %d 个参考图文件名称: %s", len(image_files), image_dir_path)
         return True
         
