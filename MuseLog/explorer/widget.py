@@ -126,6 +126,8 @@ class TabExplorerWidget(
         self.ui.btnSpine.clicked.connect(self.on_spine_clicked)
         self.ui.btnVideo.clicked.connect(self.on_video_clicked)
         self.ui.btnSizeModify.clicked.connect(self.on_size_modify_clicked)
+        self.ui.btnPS.clicked.connect(self.on_ps_clicked)
+        self.ui.btnPsOuput.clicked.connect(self.on_ps_output_clicked)
 
         self.ui.btnBack.clicked.connect(self.on_back_clicked)
         self.ui.btnGoUp.clicked.connect(self.on_go_up_clicked)
@@ -306,7 +308,31 @@ class TabExplorerWidget(
                     QMessageBox.warning(self, "文件不存在", f"文件不存在：\n{spine_path}", QMessageBox.Ok)
             except Exception as exc:
                 QMessageBox.warning(self, "读取文件失败", f"无法读取文件：\n{spine_path}\n错误：{exc}", QMessageBox.Ok)
-            
+        
+        if op_type == "Krita文件名修复":
+            kra_path = str(op_data)
+            logging.info("修复Krita文件名: %s", kra_path)
+            try:                
+                if os.path.isfile(kra_path):
+                    base_name = os.path.basename(kra_path)
+                    dir_name = os.path.dirname(kra_path)
+                    if base_name.count('.') >= 2:
+                        parts = base_name.split('.')
+                        if parts[-2].lower() == 'png':
+                            new_base_name = '.'.join(parts[:-2] + [parts[-1]])
+                            new_kra_path = os.path.join(dir_name, new_base_name)
+                            os.rename(kra_path, new_kra_path)
+                            self.show_directory_metadata(self._current_select_path)
+                            QMessageBox.information(self, "修复完成", f"已修复文件名为：\n{new_kra_path}", QMessageBox.Ok)
+                        else:
+                            QMessageBox.information(self, "无需修复", f"文件名不符合修复条件：\n{kra_path}", QMessageBox.Ok)
+                    else:
+                        QMessageBox.information(self, "无需修复", f"文件名不符合修复条件：\n{kra_path}", QMessageBox.Ok)
+                else:
+                    QMessageBox.warning(self, "文件不存在", f"文件不存在：\n{kra_path}", QMessageBox.Ok)
+            except Exception as exc:
+                QMessageBox.warning(self, "修复失败", f"无法修复文件名：\n{kra_path}\n错误：{exc}", QMessageBox.Ok)
+            return
         logging.debug("未处理的元数据操作类型: %s", op_type)
 
     # ------------------------------------------------------------------
@@ -350,6 +376,16 @@ class TabExplorerWidget(
         current_path = self.ui.labelSelectPath.text().strip()
         size_modify_dir = os.path.join(current_path, "尺寸修改")
         self._ensure_folder(size_modify_dir)
+        
+    def on_ps_clicked(self) -> None:
+        current_path = self.ui.labelSelectPath.text().strip()
+        ps_dir = os.path.join(current_path, "PS")
+        self._ensure_folder(ps_dir)
+        
+    def on_ps_output_clicked(self) -> None:
+        current_path = self.ui.labelSelectPath.text().strip()
+        ps_output_dir = os.path.join(current_path, "PS导出")
+        self._ensure_folder(ps_output_dir)
 
     def _ensure_folder(self, target_dir: str) -> None:
         if os.path.isdir(target_dir):

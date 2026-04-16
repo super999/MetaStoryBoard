@@ -119,6 +119,16 @@ class MetadataMixin:
                 op_name="启动Spine",
                 op_data=spine,
             )
+            
+        krita_files = self._list_files(folder, {".kra"})
+        for index, kra in enumerate(krita_files):
+            # 判断文件名是否为 xxxx.png.kra ，改名为 xxxx.kra            
+            meta[f"Krita文件_{index}"] = MetaStruct(
+                os.path.basename(kra),
+                op_type="Krita文件名修复",
+                op_name="修复文件名",
+                op_data=kra,
+            )
         return meta
 
     def on_table_cell_activated(self, row: int, column: int) -> None:

@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import time
 import shutil
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QWidget, QLabel
 )
 
+from MuseLog.GTools.download_service import DownloadService, MediaFileType
 from MuseLog.explorer_signals import signal_manager
 
 CustomWidgetBuilder = Callable[[QWidget, str, Dict[str, Any]], Sequence[QWidget]]
@@ -249,12 +251,25 @@ def build_sequence_frames_widgets(container: QWidget, full_folder: str, meta: Di
             signal_manager.delete_selected_animation_sequence.emit(tab_id)
     btn_delete_sequence.clicked.connect(on_delete_sequence_clicked)
 
+    # 扫描/拷贝下载的最新文件到当前目录(移动最新的下载文件)
+    btn_scan_latest = QPushButton("自动下载最新文件", container)
+    def on_scan_latest_clicked() -> None:
+        DownloadService().scan_and_move_latest_download(str(folder_path))
+        QMessageBox.information(container, "操作完成", f"已完成扫描并拷贝最新下载文件到 {folder_path}。")
+        # 发送刷新信号
+        tab_id = _resolve_tab_id(container)
+        if tab_id:
+            signal_manager.gui_fresh_tab_collect_metadata.emit(tab_id)
+        
+    btn_scan_latest.clicked.connect(on_scan_latest_clicked)
+    
     return [
         btn_modify_frame_rate,
         frame_rate_input,
         btn_modify_animation_type,
         animation_type_combo,
         btn_delete_sequence,
+        btn_scan_latest,
         _make_spacer(container),
     ]
 
@@ -311,11 +326,22 @@ def build_video_modify_widgets(container: QWidget, full_folder: str, meta: Dict[
             return
         signal_manager.optimize_video_filenames.emit(tab_id, str(folder_path))
     btn_optimize_video.clicked.connect(on_optimize_video_clicked)
+    # 自动下载视频
+    btn_scan_latest = QPushButton("自动下载最新文件", container)
+    def on_scan_latest_clicked() -> None:
+        DownloadService().scan_and_move_latest_download(str(folder_path), media_type=MediaFileType.VIDEO)
+        QMessageBox.information(container, "操作完成", f"已完成扫描并拷贝最新下载文件到 {folder_path}。")
+        # 发送刷新信号
+        tab_id = _resolve_tab_id(container)
+        if tab_id:
+            signal_manager.gui_fresh_tab_collect_metadata.emit(tab_id)
+    btn_scan_latest.clicked.connect(on_scan_latest_clicked)
     return [
         btn_modify_video,
         label_info,
         animation_type_combo,
         btn_optimize_video,
+        btn_scan_latest,
         _make_spacer(container),
     ]
 
@@ -587,14 +613,43 @@ def build_reference_drawings_widgets(container: QWidget, full_folder: str, meta:
         btn_copy_ref_folder.clicked.connect(on_copy_ref_folder_clicked)
     else:
         btn_copy_ref_folder.setEnabled(False)   
+        
+    # 4.0 按时间序列，重命名参考图文件
+    btn_rename_file_folder = QPushButton("时间序列重命名", container)
+    def on_rename_ref_folder_clicked() -> None:
+        # 前提是 图片, jpeg, png, jfif 等文件名
+        # 遍历文件夹内的图片文件，按修改时间排序，然后重命名为 202511-21-114259-01.png, 202511-21-114259-02.png ...
+        list_of_images = []
+        for item in ref_path.iterdir():
+            if item.is_file() and item.suffix.lower() in {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".jfif"}:
+                list_of_images.append(item)
+        list_of_images.sort(key=lambda x: x.stat().st_mtime)
+        year_month_str = f"{time.strftime('%Y%m')}"
+        day_str = f"{time.strftime('%d')}"
+        time_str = f"{time.strftime('%H%M%S')}"
+        filename_suffix_str = f'{year_month_str}-{day_str}-{time_str}'
+        ext_rage = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".jfif"]
+        file_counter = 1
+        for index, image_path in enumerate(list_of_images, start=1):
+            ext = image_path.suffix.lower()
+            if ext not in ext_rage:
+                continue
+            new_filename = f"{filename_suffix_str}-{file_counter:02d}{ext}"
+            new_filepath = ref_path / new_filename
+            image_path.rename(new_filepath)
+            file_counter += 1
+        signal_manager.gui_fresh_tab_collect_metadata.emit(_resolve_tab_id(container) or "")
+        QMessageBox.information(container, "重命名完成", f"已完成按时间序列重命名参考图文件，共重命名 {file_counter - 1} 个文件。")           
+    btn_rename_file_folder.clicked.connect(on_rename_ref_folder_clicked)
     return [
         btn_rename_ref_folder,
         label_name_platform,
         line_edit_name,
         label_name_creature,
         line_edit_creature,
-        btn_copy_ref_folder,
         btn_optimize_ref_images,
+        btn_copy_ref_folder,
+        btn_rename_file_folder,
         _make_spacer(container)
     ]
 

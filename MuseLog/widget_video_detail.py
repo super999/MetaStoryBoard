@@ -173,7 +173,11 @@ class VideoDetailWidget(QWidget):
             self._write_all_metadata(self._all_metadata)
             self._initial_entry = deepcopy(entry)
             self._apply_metadata(entry)
-            QMessageBox.information(self, "保存成功", f"元数据已写入：\n{self._metadata_path}")
+            QToolTip.showText(self.ui.saveButton.mapToGlobal(self.ui.saveButton.rect().topLeft()),
+                "视频元数据已保存。",
+                self.ui.saveButton,
+                msecShowTime=2000,
+            )
         except Exception as exc:
             QMessageBox.critical(self, "保存失败", f"写入元数据文件时出错：\n{exc}")
 

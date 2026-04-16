@@ -189,6 +189,20 @@
               </widget>
              </item>
              <item>
+              <widget class="QPushButton" name="btnPS">
+               <property name="text">
+                <string>PS</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnPsOuput">
+               <property name="text">
+                <string>PS导出</string>
+               </property>
+              </widget>
+             </item>
+             <item>
               <spacer name="horizontalSpacer">
                <property name="orientation">
                 <enum>Qt::Horizontal</enum>

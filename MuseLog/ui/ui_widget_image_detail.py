@@ -15,9 +15,9 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
-    QPushButton, QSizePolicy, QSpacerItem, QTextEdit,
-    QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QHBoxLayout,
+    QLabel, QPushButton, QSizePolicy, QSpacerItem,
+    QTextEdit, QVBoxLayout, QWidget)
 
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -101,6 +101,11 @@ class Ui_Form(object):
         self.textEdit.setObjectName(u"textEdit")
 
         self.verticalLayout_3.addWidget(self.textEdit)
+
+        self.checkQulified = QCheckBox(self.widget)
+        self.checkQulified.setObjectName(u"checkQulified")
+
+        self.verticalLayout_3.addWidget(self.checkQulified)
 
         self.label_3 = QLabel(self.widget)
         self.label_3.setObjectName(u"label_3")
@@ -188,6 +193,7 @@ class Ui_Form(object):
         self.btnCopyPath.setText(QCoreApplication.translate("Form", u"\u590d\u5236\u5730\u5740", None))
         self.labelImageRect.setText(QCoreApplication.translate("Form", u"\u56fe\u7247\u663e\u793a\u4f4d\u7f6e", None))
         self.label_2.setText(QCoreApplication.translate("Form", u"\u63d0\u793a\u8bcd", None))
+        self.checkQulified.setText(QCoreApplication.translate("Form", u"\u53c2\u8003-\u5408\u683c", None))
         self.label_3.setText(QCoreApplication.translate("Form", u"\u53c2\u8003\u6a21\u578b", None))
         self.label_4.setText(QCoreApplication.translate("Form", u"\u53c2\u8003\u56fe", None))
         self.btnCopyCfg.setText(QCoreApplication.translate("Form", u"\u590d\u5236\u8bb0\u5f55", None))

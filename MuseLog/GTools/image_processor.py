@@ -184,6 +184,7 @@ class ImageProcessor:
         if not image_files:
             logging.info("目录下没有找到图片文件: %s", image_dir_path)
             return False
+        rename_map = {}
         for image_path in image_files:
             # 文件名, 格式如： 8e8fa106-b3e7-41e9-b1bb-53bfbc9bb95d.jfif， 即只有 英文数字和 - 符号， 且长度较长
             filename = image_path.stem
@@ -205,12 +206,7 @@ class ImageProcessor:
                 # 截取最后4位作为文件名
                 new_filename = f"{platform_name}_{image_path.stem[-4:]}{ext}"
                 target_image_path = folder_path / new_filename
-                try:
-                    image_path.rename(target_image_path)
-                    logging.info("已优化文件名: %s -> %s", image_path.name, new_filename)
-                except Exception as e:
-                    logging.error("重命名文件失败: %s -> %s, 错误: %s", image_path.name, new_filename, str(e))
-                    continue
+                rename_map[image_path] = target_image_path
             # 判断 是否是 whisk 新格式
             elif ext in ext_list and match_result_new:
                 platform_name = "Whisk平台"
@@ -219,12 +215,41 @@ class ImageProcessor:
                 if hash_part:
                     new_filename = f"{platform_name}_{hash_part[0][:4]}{ext}"
                     target_image_path = folder_path / new_filename
-                    try:
-                        image_path.rename(target_image_path)
-                        logging.info("已优化文件名: %s -> %s", image_path.name, new_filename)
-                    except Exception as e:
-                        logging.error("重命名文件失败: %s -> %s, 错误: %s", image_path.name, new_filename, str(e))
-                        continue
+                    rename_map[image_path] = target_image_path
+        if not rename_map:
+            logging.info("没有需要优化的参考图文件名称: %s", image_dir_path)
+            return True
+        # 读取 提示词文件
+        prompt_file_path = folder_path / "提示词.json"
+        all_lines = []
+        if prompt_file_path.exists():
+            try:
+                with open(prompt_file_path, "r", encoding="utf-8") as f:
+                    all_lines = f.readlines()
+            except Exception as e:
+                logging.error("读取提示词文件失败: %s, 错误: %s", str(prompt_file_path), str(e))
+            for i in range(len(all_lines)):
+                line = all_lines[i]
+                for old_path, new_path in rename_map.items():
+                    old_name = old_path.name
+                    new_filename = new_path.name
+                    if old_name in line:
+                        all_lines[i] = line.replace(old_name, new_filename)
+                        logging.info("已更新提示词文件中的参考图文件名: %s -> %s", old_name, new_filename)
+            # 写回提示词文件
+            try:
+                with open(prompt_file_path, "w", encoding="utf-8") as f:
+                    f.writelines(all_lines)
+            except Exception as e:
+                logging.error("写入提示词文件失败: %s, 错误: %s", str(prompt_file_path), str(e))
+        # 重命名文件
+        for old_path, new_path in rename_map.items():
+            try:
+                old_path.rename(new_path)
+                logging.info("已优化文件名: %s -> %s", old_path.name, new_path.name)
+            except Exception as e:
+                logging.error("重命名文件失败: %s -> %s, 错误: %s", old_path.name, new_path.name, str(e))
+                continue
         logging.info("已优化 %d 个参考图文件名称: %s", len(image_files), image_dir_path)
         return True
         
